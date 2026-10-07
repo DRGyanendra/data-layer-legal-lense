@@ -479,6 +479,39 @@ def cmd_sample(args, settings: Settings) -> int:
     return 0 if got == len(sample) else 1
 
 
+def cmd_questions(args, settings: Settings) -> int:
+    """Turn IndicLegalQA into questions for `evaluate`, and list the judgments they need."""
+    import json
+    import random
+
+    from .dataset import (describe, download_pdf, fetch_metadata, match_indiclegalqa, write_draft_manifest,
+                          write_indiclegalqa_questions, write_sample_csv)
+
+    pairs = json.loads(Path(args.json).read_text(encoding="utf-8"))
+    judgments = fetch_metadata(ROOT / "data" / "cache" / "aws_metadata")
+    matched, unmatched = match_indiclegalqa(pairs, judgments)
+    print(f"{len(pairs)} question-answer pairs over {len(matched) + len(unmatched)} cases: "
+          f"{len(matched)} found in the AWS bucket, {len(unmatched)} not")
+    chosen = sorted({j.path: j for j in matched.values()}.values(), key=lambda j: (j.year, j.path))
+    if args.limit and args.limit < len(chosen):
+        random.Random(args.seed).shuffle(chosen)
+        chosen = sorted(chosen[:args.limit], key=lambda j: (j.year, j.path))
+        keep = {j.path for j in chosen}
+        matched = {k: j for k, j in matched.items() if j.path in keep}
+    out_dir = Path(args.dir)
+    n = write_indiclegalqa_questions(pairs, matched, Path(args.out))
+    write_sample_csv(chosen, out_dir / "sample.csv")
+    write_draft_manifest(chosen, out_dir / "cases.aws.draft.yaml")
+    for line in describe(chosen):
+        print(line)
+    print(f"{n} questions written to {args.out}; their {len(chosen)} judgments are listed in {out_dir / 'sample.csv'}")
+    if args.no_download:
+        return 0
+    got = sum(1 for j in chosen if download_pdf(j, out_dir))
+    print(f"Downloaded {got} of {len(chosen)} PDFs to {out_dir}. Next: scan, then ingest, then evaluate {args.out}")
+    return 0 if got == len(chosen) else 1
+
+
 def cmd_evaluate(args, settings: Settings) -> int:
     from .evaluate import load_questions, score
 
@@ -571,6 +604,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--exclude", nargs="*", help="bucket paths to leave out (e.g. the curated judgments)")
     p.add_argument("--no-download", action="store_true", help="only write sample.csv and the draft records")
     p.set_defaults(fn=cmd_sample)
+
+    p = sub.add_parser("questions", help="convert IndicLegalQA to a question file and fetch the judgments it covers")
+    p.add_argument("json", help="the IndicLegalQA JSON file (Mendeley Data, CC BY 4.0)")
+    p.add_argument("--dir", default="data/raw/indiclegalqa", help="where the PDFs and sample.csv go")
+    p.add_argument("--out", default="data/eval.indiclegalqa.yaml")
+    p.add_argument("--limit", type=int, default=0, help="use only this many of the matched judgments (0 = all)")
+    p.add_argument("--seed", type=int, default=20261007)
+    p.add_argument("--no-download", action="store_true")
+    p.set_defaults(fn=cmd_questions)
 
     p = sub.add_parser("evaluate", help="hit rate and wrong-document rate on known questions")
     p.add_argument("questions", help="YAML file of questions, see data/eval.example.yaml")

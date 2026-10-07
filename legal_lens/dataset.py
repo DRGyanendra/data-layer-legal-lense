@@ -298,13 +298,23 @@ def _sample_rows(listing: Path) -> dict[str, dict]:
 
 
 def _party(text: str) -> str:
-    from .autometa import _AND_OTHERS, title_case
+    from .autometa import _AND_OTHERS, _THROUGH, title_case
 
-    text = _AND_OTHERS.sub("", text.strip())
+    text = _THROUGH.sub("", _AND_OTHERS.sub("", text.strip()))
     text = re.sub(r"\s+", " ", text).strip(" .,;:")
     if re.search(r"\b(?:[A-Za-z]\.)+[A-Za-z]$", text):
         text += "."
     return title_case(text)
+
+
+def case_id_for(petitioner: str, respondent: str, date, stem: str) -> str:
+    """The case_id the pipeline gives a judgment read without a manifest entry."""
+    from .ids import slugify
+
+    lead = petitioner if petitioner and not re.match(r"^(?:state|union|commissioner|director|collector)\b", petitioner, re.IGNORECASE) \
+        else f"{petitioner} v {respondent}" if petitioner else stem
+    lead = re.sub(r"\(.*?\)", "", re.sub(r"^(?:justice|dr|shri|smt|mr|mrs|ms|m/s|his holiness|sri)\.?\s+", "", lead, flags=re.IGNORECASE))
+    return ("_".join(slugify(lead).split("_")[:6]) or slugify(stem)) + (f"_{date.year}" if date else "")
 
 
 def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
@@ -343,7 +353,11 @@ def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
         if lead and not any(len(w) >= 4 and w in pdf_name for w in lead):
             conflicts.append(f"The dataset names the case {petitioner} v. {respondent}; the PDF reads {auto.name}.")
     if auto.bench and bench:
-        strangers = [b for b in auto.bench if not any(same_judge(b, d) for d in bench)]
+        # only a name that reads like one counts: OCR debris taken for a judge is
+        # already covered by the malformed-text check
+        plausible = [b for b in auto.bench if re.fullmatch(r"[A-Z][A-Za-z.'\- ]{3,35}", b)
+                     and len(re.sub(r"[^A-Za-z]", "", b.split()[-1])) >= 3]      # Roy, Ray, Sen, Beg are real surnames
+        strangers = [b for b in plausible if not any(same_judge(b, d) for d in bench)]
         if strangers:
             conflicts.append("Judge(s) read from the PDF are not in the dataset's bench: " + ", ".join(strangers)
                              + ". The PDF may hold a different judgment, or a name was misread.")
@@ -362,11 +376,7 @@ def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
         name = _party(title)
     else:
         name = auto.name
-    lead = petitioner if petitioner and not re.match(r"^(?:state|union|commissioner|director|collector)\b", petitioner, re.IGNORECASE) \
-        else f"{petitioner} v {respondent}" if petitioner else Path(pdf_path).stem
-    from .ids import slugify
-    lead = re.sub(r"\(.*?\)", "", re.sub(r"^(?:justice|dr|shri|smt|mr|mrs|ms|m/s|his holiness|sri)\.?\s+", "", lead, flags=re.IGNORECASE))
-    case_id = ("_".join(slugify(lead).split("_")[:6]) or slugify(Path(pdf_path).stem)) + (f"_{date.year}" if date else "")
+    case_id = case_id_for(petitioner, respondent, date, Path(pdf_path).stem)
 
     missing = [k for k, v in (("parties", petitioner and respondent), ("date", date), ("bench", bench), ("citation", citations)) if not v]
     return CaseMeta(
@@ -376,3 +386,72 @@ def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
         notes="Case details from the Indian Supreme Court Judgments dataset (Dattam Labs, CC-BY 4.0), "
               "cross-checked against the PDF." + (" " + auto.notes if auto.notes else ""),
     )
+
+
+# ------------------------------------------------------------- IndicLegalQA
+
+_STOP = {"state", "union", "india", "others", "another", "anr", "ors", "versus", "through", "limited",
+         "private", "company", "singh", "kumar", "govt", "government", "secretary", "ltd"}
+
+
+def _name_words(name: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]{4,}", name.lower()) if w not in _STOP}
+
+
+def _qa_date(text: str):
+    import datetime as dt
+
+    text = re.sub(r"(\d+)(?:st|nd|rd|th)", r"\1", (text or "").strip())
+    for fmt in ("%d %B %Y", "%d %B, %Y", "%B %d, %Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return dt.datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def match_indiclegalqa(pairs: list[dict], judgments: list[Judgment]) -> tuple[dict[tuple, Judgment], list[tuple]]:
+    """Which bucket judgment each IndicLegalQA case is: same decision date and
+    the most party words in common, taken only when one candidate stands out.
+    Returns {(case_name, date_text): judgment} and the unmatched cases."""
+    by_date: dict = {}
+    for j in judgments:
+        by_date.setdefault(j.decision_date, []).append(j)
+    matched: dict[tuple, Judgment] = {}
+    unmatched: list[tuple] = []
+    for key in dict.fromkeys((r["case_name"], r.get("judgement_date") or r.get("judgment_date") or "") for r in pairs):
+        date = _qa_date(key[1])
+        words = _name_words(key[0])
+        scored = sorted(((len(words & _name_words(j.title)), j) for j in by_date.get(date.isoformat() if date else "", [])),
+                        key=lambda x: -x[0])
+        if scored and scored[0][0] >= 1 and (len(scored) == 1 or scored[0][0] > scored[1][0]):
+            matched[key] = scored[0][1]
+        else:
+            unmatched.append(key)
+    return matched, unmatched
+
+
+def write_indiclegalqa_questions(pairs: list[dict], matched: dict[tuple, Judgment], out: Path) -> int:
+    """The question file `evaluate` reads. No paragraph is known for these
+    questions, so `paragraphs` is empty and a hit means the right case."""
+    import yaml
+
+    questions = []
+    for r in pairs:
+        key = (r["case_name"], r.get("judgement_date") or r.get("judgment_date") or "")
+        j = matched.get(key)
+        if j is None:
+            continue
+        petitioner, respondent = _party(j.petitioner), _party(j.respondent)
+        questions.append({
+            "query": r["question"], "case_id": case_id_for(petitioner, respondent, _qa_date(key[1]), j.file_stem),
+            "paragraphs": [], "answer": r["answer"], "source": "IndicLegalQA", "file": j.file_stem + ".pdf",
+        })
+    out.parent.mkdir(parents=True, exist_ok=True)
+    header = ("# Questions from IndicLegalQA (NIT Srinagar, Mendeley Data, doi:10.17632/gf8n8cnmvc.2, CC BY 4.0),\n"
+              "# matched to judgments in the AWS Open Data bucket by decision date and party names.\n"
+              "# No paragraph numbers are known, so a hit means a chunk from the right case. `answer` is kept\n"
+              "# for reading, not scoring.\n")
+    out.write_text(header + yaml.safe_dump({"questions": questions}, sort_keys=False, allow_unicode=True, width=120),
+                   encoding="utf-8")
+    return len(questions)
