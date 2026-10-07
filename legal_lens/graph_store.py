@@ -180,7 +180,9 @@ class Neo4jHttpRunner:
         self._auth = "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
         self._timeout = timeout
 
-    def _post(self, body: dict) -> dict:
+    RETRY_WAITS = (2, 4, 8)          # seconds; a reset connection or a 5xx is tried again
+
+    def _send(self, body: dict) -> dict:
         import json
         import urllib.error
         import urllib.request
@@ -195,6 +197,23 @@ class Neo4jHttpRunner:
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode(errors="replace")[:500]
             raise RuntimeError(f"Neo4j Query API answered {exc.code}: {detail}") from None
+
+    def _post(self, body: dict) -> dict:
+        """One statement, retried a few times when the connection drops or the
+        service answers 5xx. A 4xx (bad Cypher, bad credentials) is not retried."""
+        import time
+        import urllib.error
+
+        for attempt, wait in enumerate((*self.RETRY_WAITS, None)):
+            try:
+                return self._send(body)
+            except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+                if wait is None:
+                    raise RuntimeError(f"Neo4j Query API unreachable after {attempt + 1} attempts: {exc}") from None
+            except RuntimeError as exc:
+                if wait is None or " answered 5" not in str(exc):
+                    raise
+            time.sleep(wait)
 
     @staticmethod
     def rows(reply: dict) -> list[dict]:
