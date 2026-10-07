@@ -1,0 +1,25 @@
+# PDF reading. pdfplumber is the default and the one that has been tested.
+# PyMuPDF is optional (--backend pymupdf): faster, not yet run on real files.
+pdfplumber>=0.11
+pymupdf>=1.24
+
+# Stores
+qdrant-client>=1.10
+neo4j>=5.14
+
+# Embeddings (pulls in torch; the BGE-M3 model is about 2.3 GB on first use)
+sentence-transformers>=3.0
+
+# Config and manifest
+PyYAML>=6.0
+python-dotenv>=1.0
+
+# OCR for scanned pages. Also needs the Tesseract program installed on the machine.
+pytesseract>=0.3.10
+Pillow>=10.0
+
+# Only needed for `check` against Supabase
+psycopg[binary]>=3.1
+
+# Only needed to build the sample PDF used by the tests
+reportlab>=4.0

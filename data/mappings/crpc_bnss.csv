@@ -1,0 +1,29 @@
+# SEED TABLE, NOT THE COMPLETE MAPPING. 21 rows; the IPC alone has 511 sections.
+# verified=yes: the full new_section matched at least one published conversion table on 2026-10-02.
+# verified=no:  the section number matched, the sub-section did not appear in those tables.
+# Those tables are secondary sources and were seen to disagree with each other.
+# Check every row against the bare acts on indiacode.nic.in before the product relies on it.
+# Sources: vakeel360 = vakeel360.com/ipc-to-bns and /crpc-to-bnss; lawsikho = lawsikho.com/blog/ipc-to-bns-conversion-table;
+#          lawbhoomi = lawbhoomi.com/medical-negligence-under-bharatiya-nyaya-sanhita; legalserviceindia = article 21507.
+old_code,old_section,new_code,new_section,relation,heading,change_note,effective_date,source,verified
+CrPC,41,BNSS,35,unreviewed,When police may arrest without warrant,,2024-07-01,vakeel360; lawsikho,yes
+CrPC,41A,BNSS,35(3),unreviewed,Notice of appearance before police officer,,2024-07-01,vakeel360,yes
+CrPC,125,BNSS,144,unreviewed,"Order for maintenance of wives, children and parents",,2024-07-01,vakeel360,yes
+CrPC,144,BNSS,163,unreviewed,Power to issue order in urgent cases of nuisance or apprehended danger,,2024-07-01,vakeel360,yes
+CrPC,154,BNSS,173,modified,Information in cognizable cases,"BNSS 173 is described as adding registration irrespective of where the offence occurred (zero FIR), information by electronic communication, and a preliminary enquiry for certain offences. Compare the two texts.",2024-07-01,vakeel360; lawsikho,yes
+CrPC,161,BNSS,180,unreviewed,Examination of witnesses by police,,2024-07-01,vakeel360; lawsikho,yes
+CrPC,164,BNSS,183,unreviewed,Recording of confessions and statements,,2024-07-01,vakeel360; lawsikho,yes
+CrPC,167,BNSS,187,unreviewed,Procedure when investigation cannot be completed in twenty-four hours,,2024-07-01,vakeel360; lawsikho,yes
+CrPC,173,BNSS,193,unreviewed,Report of police officer on completion of investigation,,2024-07-01,vakeel360; lawsikho,yes
+CrPC,190,BNSS,210,unreviewed,Cognizance of offences by Magistrate,,2024-07-01,vakeel360,yes
+CrPC,200,BNSS,223,unreviewed,Examination of complainant,,2024-07-01,vakeel360,yes
+CrPC,313,BNSS,351,unreviewed,Power to examine the accused,,2024-07-01,vakeel360,yes
+CrPC,357,BNSS,395,unreviewed,Order to pay compensation,,2024-07-01,vakeel360,yes
+CrPC,374,BNSS,415,unreviewed,Appeals from convictions,,2024-07-01,vakeel360,yes
+CrPC,378,BNSS,419,unreviewed,Appeal in case of acquittal,,2024-07-01,vakeel360,yes
+CrPC,397,BNSS,438,unreviewed,Calling for records to exercise powers of revision,,2024-07-01,vakeel360,yes
+CrPC,436,BNSS,478,unreviewed,In what cases bail to be taken,,2024-07-01,vakeel360,yes
+CrPC,437,BNSS,480,unreviewed,When bail may be taken in case of non-bailable offence,,2024-07-01,vakeel360,yes
+CrPC,438,BNSS,482,unreviewed,Direction for grant of bail to person apprehending arrest,,2024-07-01,vakeel360; lawsikho,yes
+CrPC,439,BNSS,483,unreviewed,Special powers of High Court or Court of Session regarding bail,,2024-07-01,vakeel360; lawsikho,yes
+CrPC,482,BNSS,528,unreviewed,Saving of inherent powers of High Court,,2024-07-01,vakeel360; lawsikho,yes

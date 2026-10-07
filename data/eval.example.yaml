@@ -1,0 +1,28 @@
+# Questions for `python -m legal_lens evaluate`. Copy to data/eval.yaml.
+#
+# For each question, open the judgment, find the paragraph that answers it,
+# and put that paragraph's own number under `paragraphs`. A result counts as
+# a hit when a retrieved chunk from the right case covers one of them.
+# The zeros below are placeholders and will always miss until you fill them in.
+#
+# Write questions the way users will ask them, not the way the judgment words
+# its answer. Twenty to thirty across the five cases is enough to compare two
+# chunking or embedding settings.
+
+questions:
+  - query: When can a doctor be prosecuted for causing death by negligence?
+    case_id: jacob_mathew_2005
+    paragraphs: [0]
+
+  - query: Is a simple lack of care enough for criminal negligence?
+    case_id: jacob_mathew_2005
+    paragraphs: [0]
+
+  - query: Does a daughter have a share in ancestral property if her father died before 2005?
+    case_id: vineeta_sharma_2020
+    paragraphs: [0]
+
+  - query: Is privacy a fundamental right under the Constitution?
+    case_id: puttaswamy_2017
+    paragraphs: [0]
+    opinion_index: 0        # optional: which opinion in the PDF, counting from 0

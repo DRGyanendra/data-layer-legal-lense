@@ -1,0 +1,53 @@
+# SEED TABLE, NOT THE COMPLETE MAPPING. 45 rows; the IPC alone has 511 sections.
+# verified=yes: the full new_section matched at least one published conversion table on 2026-10-02.
+# verified=no:  the section number matched, the sub-section did not appear in those tables.
+# Those tables are secondary sources and were seen to disagree with each other.
+# Check every row against the bare acts on indiacode.nic.in before the product relies on it.
+# Sources: vakeel360 = vakeel360.com/ipc-to-bns and /crpc-to-bnss; lawsikho = lawsikho.com/blog/ipc-to-bns-conversion-table;
+#          lawbhoomi = lawbhoomi.com/medical-negligence-under-bharatiya-nyaya-sanhita; legalserviceindia = article 21507.
+old_code,old_section,new_code,new_section,relation,heading,change_note,effective_date,source,verified
+IPC,34,BNS,3(5),unreviewed,Acts done by several persons in furtherance of common intention,,2024-07-01,vakeel360; lawsikho,yes
+IPC,107,BNS,45,unreviewed,Abetment of a thing,,2024-07-01,vakeel360; lawsikho,yes
+IPC,120B,BNS,61(2),unreviewed,Punishment of criminal conspiracy,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,124A,BNS,152,modified,Sedition,"Not a renumbering. Sedition is not carried over; BNS 152 is a differently worded offence of acts endangering the sovereignty, unity and integrity of India.",2024-07-01,vakeel360; lawsikho,yes
+IPC,141,BNS,189(1),unreviewed,Unlawful assembly,,2024-07-01,"section matched vakeel360; sub-section not shown there, check the bare act",no
+IPC,147,BNS,191(2),unreviewed,Punishment for rioting,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,149,BNS,190,unreviewed,Every member of unlawful assembly guilty of offence committed in prosecution of common object,,2024-07-01,vakeel360; lawsikho,yes
+IPC,201,BNS,238,unreviewed,Causing disappearance of evidence of offence,,2024-07-01,vakeel360,yes
+IPC,279,BNS,281,unreviewed,Rash driving or riding on a public way,,2024-07-01,vakeel360,yes
+IPC,299,BNS,100,unreviewed,Culpable homicide,,2024-07-01,vakeel360; lawsikho,yes
+IPC,300,BNS,101,unreviewed,Murder,,2024-07-01,vakeel360; lawsikho,yes
+IPC,302,BNS,103(1),unreviewed,Punishment for murder,,2024-07-01,vakeel360; lawsikho,yes
+IPC,304,BNS,105,unreviewed,Punishment for culpable homicide not amounting to murder,,2024-07-01,vakeel360; lawsikho,yes
+IPC,304A,BNS,106(1),modified,Causing death by negligence,"Maximum imprisonment is five years under BNS 106(1), against two years under IPC 304A. A registered medical practitioner who causes death while performing a medical procedure faces up to two years.",2024-07-01,vakeel360; lawsikho; lawbhoomi; legalserviceindia,yes
+IPC,304B,BNS,80,unreviewed,Dowry death,,2024-07-01,vakeel360; lawsikho,yes
+IPC,306,BNS,108,unreviewed,Abetment of suicide,,2024-07-01,vakeel360,yes
+IPC,307,BNS,109,unreviewed,Attempt to murder,,2024-07-01,vakeel360; lawsikho,yes
+IPC,308,BNS,110,unreviewed,Attempt to commit culpable homicide,,2024-07-01,vakeel360,yes
+IPC,309,,,omitted,Attempt to commit suicide,"No general successor in the BNS. A narrower offence, attempting suicide to compel or restrain a public servant, is said to sit at BNS 226; confirm against the bare act.",2024-07-01,lawsikho,yes
+IPC,323,BNS,115(2),unreviewed,Punishment for voluntarily causing hurt,,2024-07-01,lawsikho; vakeel360,yes
+IPC,324,BNS,118(1),unreviewed,Voluntarily causing hurt by dangerous weapons or means,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,325,BNS,117(2),unreviewed,Punishment for voluntarily causing grievous hurt,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,354,BNS,74,unreviewed,Assault or criminal force to woman with intent to outrage her modesty,,2024-07-01,vakeel360; lawsikho,yes
+IPC,363,BNS,137(2),unreviewed,Punishment for kidnapping,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,375,BNS,63,unreviewed,Rape,,2024-07-01,vakeel360; lawsikho,yes
+IPC,376,BNS,64,unreviewed,Punishment for rape,,2024-07-01,vakeel360; lawsikho,yes
+IPC,377,,,omitted,Unnatural offences,No corresponding provision in the BNS.,2024-07-01,lawsikho,yes
+IPC,379,BNS,303(2),unreviewed,Punishment for theft,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,380,BNS,305,unreviewed,Theft in dwelling house,,2024-07-01,vakeel360; lawsikho,yes
+IPC,392,BNS,309(4),unreviewed,Punishment for robbery,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,395,BNS,310(2),unreviewed,Punishment for dacoity,,2024-07-01,"section matched vakeel360; sub-section not shown there, check the bare act",no
+IPC,406,BNS,316(2),unreviewed,Punishment for criminal breach of trust,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,411,BNS,317(2),unreviewed,Dishonestly receiving stolen property,,2024-07-01,"section matched vakeel360; sub-section not shown there, check the bare act",no
+IPC,420,BNS,318(4),unreviewed,Cheating and dishonestly inducing delivery of property,,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,447,BNS,329(3),unreviewed,Punishment for criminal trespass,,2024-07-01,"section matched vakeel360; sub-section not shown there, check the bare act",no
+IPC,467,BNS,338,unreviewed,"Forgery of valuable security, will, etc.",,2024-07-01,vakeel360; lawsikho,yes
+IPC,471,BNS,340(2),unreviewed,Using as genuine a forged document,,2024-07-01,"section matched vakeel360; sub-section not shown there, check the bare act",no
+IPC,497,,,omitted,Adultery,Struck down in Joseph Shine v. Union of India (2018) and not re-enacted in the BNS.,2024-07-01,vakeel360; lawsikho,yes
+IPC,498A,BNS,85,unreviewed,Husband or relative of husband subjecting a woman to cruelty,,2024-07-01,vakeel360; lawsikho,yes
+IPC,499,BNS,356(1),unreviewed,Defamation,,2024-07-01,"section matched vakeel360; sub-section not shown there, check the bare act",no
+IPC,500,BNS,356(2),unreviewed,Punishment for defamation,,2024-07-01,"section matched lawsikho; sub-section not shown there, check the bare act",no
+IPC,506,BNS,351(2),split,Punishment for criminal intimidation,IPC 506 had two limbs. The general punishment is said to be at BNS 351(2).,2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,506,BNS,351(3),split,Punishment for criminal intimidation,"The aggravated limb (threat of death, grievous hurt and the like) is said to be at BNS 351(3).",2024-07-01,"section matched vakeel360; lawsikho; sub-section not shown there, check the bare act",no
+IPC,509,BNS,79,unreviewed,"Word, gesture or act intended to insult the modesty of a woman",,2024-07-01,vakeel360; lawsikho,yes
+IPC,511,BNS,62,unreviewed,Punishment for attempting to commit offences,,2024-07-01,vakeel360,yes

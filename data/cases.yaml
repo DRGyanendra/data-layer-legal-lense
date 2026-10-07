@@ -1,0 +1,171 @@
+# One record per judgment. This file is the source of truth for case name,
+# date, citations and bench; the pipeline checks each record against the PDF
+# text and warns when they disagree.
+#
+# Put each PDF at the path given in `file`.
+#
+# summary: one plain line on what the case decided. It is embedded with every
+# chunk of the case so that retrieval can tell this judgment from others that
+# share its boilerplate. Keep it general; do not list every issue.
+#
+# opinions: list them in the order they appear in the PDF. If the count
+# matches the number of times the paragraph numbering restarts, each chunk is
+# labelled with its author and type. If not, chunks stay 'unknown'.
+# Types: majority, plurality, concurring, dissenting, partly_dissenting, unknown.
+
+cases:
+  - case_id: jacob_mathew_2005
+    name: Jacob Mathew v. State of Punjab
+    summary: Criminal liability of doctors for death by negligence under IPC 304A; the negligence must be gross, and guidelines for prosecuting medical professionals
+    date: 2005-08-05
+    court: Supreme Court
+    citations: ["(2005) 6 SCC 1", "AIR 2005 SC 3180"]
+    bench: [R.C. Lahoti, G.P. Mathur, P.K. Balasubramanyan]
+    opinions:
+      - author: R.C. Lahoti
+        type: majority
+        joined_by: [G.P. Mathur, P.K. Balasubramanyan]
+    file: data/raw/jacob_mathew_2005.pdf
+    notes: Bench, author and date checked against Indian Kanoon on 2026-10-02.
+
+  - case_id: vineeta_sharma_2020
+    name: Vineeta Sharma v. Rakesh Sharma
+    summary: Daughters are coparceners by birth under Section 6 of the Hindu Succession Act as amended in 2005, whether or not the father was alive when the amendment came into force
+    date: 2020-08-11
+    court: Supreme Court
+    citations: ["(2020) 9 SCC 1"]
+    bench: [Arun Mishra, S. Abdul Nazeer, M.R. Shah]
+    opinions:
+      - author: Arun Mishra
+        type: majority
+        joined_by: [S. Abdul Nazeer, M.R. Shah]
+    overrules: ["(2016) 2 SCC 36"]   # Prakash v. Phulavati
+    file: data/raw/vineeta_sharma_2020.pdf
+    notes: >
+      Bench, date and author (ARUN MISHRA, J.) read from the PDF supplied on
+      2026-10-02, which is a scan read by OCR: 130 numbered paragraphs.
+      Danamma v. Amar (2018) was partly overruled and is not listed under `overrules`.
+
+  - case_id: puttaswamy_2017
+    name: Justice K.S. Puttaswamy (Retd.) v. Union of India
+    summary: The right to privacy is a fundamental right protected under Article 21 and Part III of the Constitution
+    date: 2017-08-24
+    court: Supreme Court
+    citations: ["(2017) 10 SCC 1", "AIR 2017 SC 4161"]
+    bench:
+      - J.S. Khehar
+      - J. Chelameswar
+      - S.A. Bobde
+      - R.K. Agrawal
+      - R.F. Nariman
+      - A.M. Sapre
+      - D.Y. Chandrachud
+      - S.K. Kaul
+      - S. Abdul Nazeer
+    opinions:
+      - author: D.Y. Chandrachud
+        type: plurality
+        joined_by: [J.S. Khehar, R.K. Agrawal, S. Abdul Nazeer]
+      - {author: J. Chelameswar, type: concurring}
+      - {author: S.A. Bobde, type: concurring}
+      - {author: R.F. Nariman, type: concurring}
+      - {author: A.M. Sapre, type: concurring}
+      - {author: S.K. Kaul, type: concurring}
+    file: data/raw/puttaswamy_2017.pdf
+    notes: >
+      Nine judges, six opinions, unanimous in result. Bench and the lead opinion
+      checked against Wikipedia. The order of the five concurrences is from
+      memory. NOT YET SUPPLIED: the 18-page file received on 2026-10-02 under
+      this name is the referral order of 11 August 2015 in the same writ
+      petition, not the judgment of 24 August 2017 (about 547 pages).
+
+  - case_id: navtej_johar_2018
+    name: Navtej Singh Johar v. Union of India
+    summary: Section 377 IPC is unconstitutional so far as it criminalises consensual sexual conduct between adults
+    date: 2018-09-06
+    court: Supreme Court
+    citations: ["(2018) 10 SCC 1", "2018 INSC 790"]
+    bench: [Dipak Misra, R.F. Nariman, A.M. Khanwilkar, D.Y. Chandrachud, Indu Malhotra]
+    opinions:
+      - author: Dipak Misra
+        type: majority
+        joined_by: [A.M. Khanwilkar]
+      - {author: R.F. Nariman, type: concurring}
+      - {author: D.Y. Chandrachud, type: concurring}
+      - {author: Indu Malhotra, type: concurring}
+    file: data/raw/navtej_johar_2018.pdf
+    notes: >
+      Bench, authorship and the order of the four opinions read from the PDF
+      supplied on 2026-10-02 (Misra 254 paragraphs, Nariman 98, Chandrachud 156,
+      Malhotra 21). IPC 377 has no BNS successor, so this case exercises the
+      'omitted' path of the mapping.
+
+  - case_id: kesavananda_bharati_1973
+    name: Kesavananda Bharati v. State of Kerala
+    summary: Parliament's power to amend the Constitution under Article 368 does not extend to altering its basic structure
+    date: 1973-04-24
+    court: Supreme Court
+    citations: ["(1973) 4 SCC 225", "AIR 1973 SC 1461"]
+    bench:
+      - S.M. Sikri
+      - J.M. Shelat
+      - K.S. Hegde
+      - A.N. Grover
+      - A.N. Ray
+      - P. Jaganmohan Reddy
+      - D.G. Palekar
+      - H.R. Khanna
+      - K.K. Mathew
+      - M.H. Beg
+      - S.N. Dwivedi
+      - A.K. Mukherjea
+      - Y.V. Chandrachud
+    opinions: []
+    file: data/raw/kesavananda_bharati_1973.pdf
+    notes: >
+      Thirteen judges, eleven opinions, decided 7 to 6. `opinions` is left empty
+      on purpose: fill in each author and type from the judgment, in the order
+      they appear, before relying on any passage as the law. Until then each
+      passage carries the judge's name as read from the PDF and the kind
+      'unknown'. The 1006-page file supplied on 2026-10-02 is a scan of the law
+      report (Supreme Court Reports) with a poor OCR text layer, a long
+      headnote and no paragraph numbers. It now splits into its eleven
+      opinions with the headnote left out, but about 1.6% of its words are
+      malformed and passages are cited by PDF page. Prefer a cleaner copy.
+
+  - case_id: joseph_shine_2018
+    name: Joseph Shine v. Union of India
+    summary: Section 497 IPC, the offence of adultery, and Section 198(2) CrPC are unconstitutional
+    date: 2018-09-27
+    court: Supreme Court
+    citations: ["(2019) 3 SCC 39"]
+    bench: [Dipak Misra, R.F. Nariman, A.M. Khanwilkar, D.Y. Chandrachud, Indu Malhotra]
+    opinions:
+      - author: Dipak Misra
+        type: majority
+        joined_by: [A.M. Khanwilkar]
+      - {author: R.F. Nariman, type: concurring}
+      - {author: D.Y. Chandrachud, type: concurring}
+      - {author: Indu Malhotra, type: concurring}
+    file: data/raw/joseph_shine_2018.pdf
+    notes: >
+      Date, bench and the order of the four opinions read from the PDF supplied
+      on 2026-10-02 (Misra 58 paragraphs, Nariman 28, Chandrachud 67, Malhotra 18).
+      The citation is from memory; confirm it. The file name supplied said 2017,
+      which is the year the petition was filed.
+
+  - case_id: jarnail_singh_2018
+    name: Jarnail Singh v. Lachhmi Narain Gupta
+    summary: Reservation in promotion for Scheduled Castes and Scheduled Tribes; M. Nagaraj need not be referred to a larger bench, but its requirement to collect data on backwardness is invalid
+    date: 2018-09-26
+    court: Supreme Court
+    citations: ["(2018) 10 SCC 396"]
+    bench: [Dipak Misra, Kurian Joseph, R.F. Nariman, S.K. Kaul, Indu Malhotra]
+    opinions:
+      - author: R.F. Nariman
+        type: majority
+        joined_by: [Dipak Misra, Kurian Joseph, S.K. Kaul, Indu Malhotra]
+    file: data/raw/jarnail_singh_2018.pdf
+    notes: >
+      Date, bench and author read from the PDF supplied on 2026-10-02
+      (21 paragraphs). Citation and summary are from memory; confirm them.
