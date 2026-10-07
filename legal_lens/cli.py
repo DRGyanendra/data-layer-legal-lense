@@ -171,7 +171,10 @@ def cmd_check(args, settings: Settings) -> int:
     def qdrant():
         settings.require("qdrant_url")
         from qdrant_client import QdrantClient
-        client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key, timeout=30)
+
+        from .vector_store import client_port
+        client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key, timeout=30,
+                              **client_port(settings.qdrant_url))
         names = [c.name for c in client.get_collections().collections]
         return f"connected, collections: {names or 'none yet'}"
 

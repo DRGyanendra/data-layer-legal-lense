@@ -153,6 +153,9 @@ def assess(built) -> Verdict:
         if "citation" in meta.missing:
             verdict.add("note", "No reported citation is printed in the PDF (the court's own PDFs rarely carry one). "
                                 "Passages are cited by case name and date until one is added in data/cases.yaml.")
+    if meta.source == "dataset":
+        for conflict in meta.conflicts:
+            verdict.add("review", conflict)
     if meta.court != "Supreme Court":
         verdict.add("review", f"The court is '{meta.court}', not the Supreme Court.")
 

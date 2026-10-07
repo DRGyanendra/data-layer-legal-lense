@@ -108,8 +108,10 @@ no evaluation dataset or test questions exist yet.
 - Chunk size ceiling is 384 tokens; `quality.py` rejects anything over it.
 - A chunk's `opinion_type` of `unknown` must never be presented by the
   backend as the court's holding — preserve that field, don't default it.
-- Auto-read metadata (`meta_source: "auto"`) is marked separately from a
-  hand-checked manifest entry (`"manifest"`) — never merge the two silently.
+- Auto-read metadata (`meta_source: "auto"`) and dataset metadata
+  (`"dataset"`, from the AWS bucket's record, cross-checked against the PDF)
+  are marked separately from a hand-checked manifest entry (`"manifest"`) —
+  never merge the three silently; only `manifest` was read by a person.
 - `reject`-verdict files must not be loadable without `--force`; don't
   loosen this to "fix" a low pass rate — find a cleaner source PDF instead.
 - A model-written context sentence (when added) is for search indexing

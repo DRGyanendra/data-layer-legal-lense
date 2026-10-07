@@ -2,6 +2,7 @@
 
 import unittest
 from collections import Counter
+from pathlib import Path
 
 from legal_lens.dataset import ERAS, Judgment, _quota, judgment_from_row, select_sample
 
@@ -98,6 +99,49 @@ class Balance(unittest.TestCase):
             j.bench = []
         sample = select_sample(pool, size=20, seed=3)
         self.assertTrue(all(j.bench for j in sample))
+
+
+class RecordAsCaseDetails(unittest.TestCase):
+    """A PDF that `sample` downloaded has a record in sample.csv beside it."""
+
+    def setUp(self):
+        import csv, tempfile, datetime as dt
+        from legal_lens.manifest import CaseMeta, Opinion
+        from legal_lens.dataset import Judgment, write_sample_csv
+        self.folder = Path(tempfile.mkdtemp())
+        j = judgment_from_row(row())
+        write_sample_csv([j], self.folder / "sample.csv")
+        self.pdf = self.folder / (j.file_stem + ".pdf")
+        self.pdf.write_bytes(b"%PDF-1.4")
+        self.auto = CaseMeta(case_id="x", name="Jacob Mathew v. State of Punjab", date=dt.date(2005, 8, 5),
+                             court="Supreme Court", citations=[], bench=["R.C. Lahoti"], file=str(self.pdf),
+                             opinions=[Opinion("R.C. Lahoti", "majority")], source="auto", missing=["citation"],
+                             layout="law_report")
+
+    def test_the_record_supplies_what_the_pdf_could_not(self):
+        from legal_lens.dataset import dataset_meta
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(meta.source, "dataset")
+        self.assertEqual(meta.name, "Jacob Mathew v. State of Punjab")
+        self.assertEqual(meta.citations, ["[2005] SUPP. 2 S.C.R. 307", "2005 INSC 384"])
+        self.assertEqual(meta.bench, ["R.C. Lahoti", "G.P. Mathur", "P.K. Balasubramanyan"])
+        self.assertEqual([(o.author, o.type) for o in meta.opinions], [("R.C. Lahoti", "majority")])
+        self.assertEqual((meta.case_id, meta.case_number), ("jacob_mathew_2005", "CRIMINAL APPEAL No. 144/2004"))
+        self.assertEqual((meta.missing, meta.conflicts), ([], []))
+
+    def test_a_disagreement_with_the_pdf_is_recorded(self):
+        import datetime as dt
+        from legal_lens.dataset import dataset_meta
+        self.auto.date = dt.date(2005, 8, 15)
+        self.auto.bench = ["R.C. Lahoti", "K. Roy"]
+        self.auto.name = "Something Else v. Union of India"
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(len(meta.conflicts), 3, meta.conflicts)
+        self.assertEqual(meta.date, dt.date(2005, 8, 5))            # the record's value is kept
+
+    def test_a_pdf_outside_a_sample_folder_has_no_record(self):
+        from legal_lens.dataset import dataset_meta
+        self.assertIsNone(dataset_meta(self.folder.parent / "elsewhere.pdf", self.auto))
 
 
 if __name__ == "__main__":

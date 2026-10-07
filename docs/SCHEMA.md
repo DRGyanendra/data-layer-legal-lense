@@ -40,7 +40,7 @@ One point is one or more whole paragraphs of a judgment.
 | `date` | datetime or null | `2005-08-05`. Null only when the details were read from a PDF that prints no date |
 | `citation` / `citations` | string / list | primary citation, and all of them |
 | `judges` | list | the full bench |
-| `meta_source` | keyword | `manifest` when a person checked the case record in `data/cases.yaml`; `auto` when it was read from the PDF |
+| `meta_source` | keyword | `manifest` when a person checked the case record in `data/cases.yaml`; `dataset` when it came from the source dataset's own metadata (the AWS Open Data bucket's `sample.csv` next to the PDF) and was cross-checked against the PDF; `auto` when it was read from the PDF alone. Never treat the three as equally checked: only `manifest` was read by a person |
 | `parse_quality` | keyword | `ok` or `review`: the verdict on how well this judgment was read (see "Loading any judgment") |
 | `opinion_index` | integer | 0 for the first opinion in the PDF, 1 for the next |
 | `opinion_author` | string or null | the judge named at the head of the opinion (`R.F. Nariman, J.`), matched to the bench by surname. A joint opinion reads `J.M. Shelat and A.N. Grover`. Null when the PDF names nobody, as in an order of the whole bench |
@@ -133,7 +133,7 @@ python -m legal_lens ingest --dir data/raw    # load them; REJECT files are skip
 python -m legal_lens ingest some_case.pdf     # or one file
 ```
 
-For a PDF with no entry, the case details are read from the PDF: parties, date, bench, neutral citation, case number and the author of each opinion. Four layouts are understood: the court's own PDF, the old JUDIS text (`PETITIONER:` / `RESPONDENT:` / `BENCH:`), a law report, and an Indian Kanoon printout. An entry in `data/cases.yaml` always wins over what was read, and `meta_source` says which was used.
+For a PDF with no entry, the case details are read from the PDF: parties, date, bench, neutral citation, case number and the author of each opinion. Four layouts are understood: the court's own PDF, the old JUDIS text (`PETITIONER:` / `RESPONDENT:` / `BENCH:`), a law report, and an Indian Kanoon printout. An entry in `data/cases.yaml` always wins over what was read. A PDF downloaded by `sample` has a record in the `sample.csv` beside it (parties, date, SCR and neutral citation, full bench, author, case number from the dataset); that record is used, the PDF reading is kept as a cross-check, and any disagreement on date, parties or bench becomes a `review` reason. `meta_source` says which of the three was used.
 
 `scan` writes `scan_report.csv` and `cases.draft.yaml`. The draft holds one record per judgment read automatically. Check it, add the reported citation, a one-line summary and each opinion's kind, and copy it into `data/cases.yaml`.
 

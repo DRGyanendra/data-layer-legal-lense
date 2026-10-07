@@ -272,3 +272,107 @@ def describe(sample: list[Judgment]) -> list[str]:
         counts = Counter(key(j) for j in sample)
         lines.append(f"  by {name:9} " + ", ".join(f"{k}: {v}" for k, v in sorted(counts.items())))
     return lines
+
+
+# ------------------------------------------------------------- the record as case details
+
+def sample_record(pdf_path: Path) -> dict | None:
+    """The row of `sample.csv` (written by `sample`) for this PDF, if the file
+    sits in a sample folder. The CSV is read once per folder."""
+    pdf_path = Path(pdf_path)
+    listing = pdf_path.parent / "sample.csv"
+    if not listing.exists():
+        return None
+    rows = _sample_rows(listing.resolve())
+    return rows.get(pdf_path.name)
+
+
+_SAMPLE_CACHE: dict[Path, dict[str, dict]] = {}
+
+
+def _sample_rows(listing: Path) -> dict[str, dict]:
+    if listing not in _SAMPLE_CACHE:
+        with listing.open(encoding="utf-8", newline="") as handle:
+            _SAMPLE_CACHE[listing] = {row["file"]: row for row in csv.DictReader(handle)}
+    return _SAMPLE_CACHE[listing]
+
+
+def _party(text: str) -> str:
+    from .autometa import _AND_OTHERS, title_case
+
+    text = _AND_OTHERS.sub("", text.strip())
+    text = re.sub(r"\s+", " ", text).strip(" .,;:")
+    if re.search(r"\b(?:[A-Za-z]\.)+[A-Za-z]$", text):
+        text += "."
+    return title_case(text)
+
+
+def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
+    """Case details from the dataset's record, cross-checked against `auto`,
+    the reading of the PDF itself. Returns None when the PDF has no record.
+
+    The record supplies what the dataset publishes and the scan often cannot
+    read: parties, date, SCR and neutral citations, the full bench and the
+    author. The PDF reading keeps what only the text can say: which opinions
+    there are and who heads each. Where the two disagree on the date, the
+    parties or the bench, the disagreement is recorded in `conflicts` and the
+    quality verdict turns it into a review reason.
+    """
+    import datetime as dt
+
+    from .autometa import clean_judge, same_judge
+    from .manifest import CaseMeta, Opinion
+
+    row = sample_record(pdf_path)
+    if row is None:
+        return None
+    title = row.get("title", "")
+    petitioner, respondent = (re.split(r"\s+versus\s+", title, maxsplit=1, flags=re.IGNORECASE) + [""])[:2]
+    petitioner, respondent = _party(petitioner), _party(respondent)
+    date = dt.date.fromisoformat(row["decision_date"]) if row.get("decision_date") else None
+    bench = [clean_judge(b) for b in row.get("bench", "").split(";") if b.strip()]
+    author = clean_judge(row["author"]) if row.get("author") else None
+    citations = [c for c in (row.get("citation", ""), row.get("neutral_citation", "")) if c]
+
+    conflicts: list[str] = []
+    if auto.date and date and auto.date != date:
+        conflicts.append(f"The dataset gives the decision date as {date.isoformat()}; the PDF reads {auto.date.isoformat()}.")
+    if "parties" not in auto.missing and petitioner:
+        pdf_name = re.sub(r"[^a-z ]", "", auto.name.lower())
+        lead = re.sub(r"[^a-z ]", "", petitioner.lower()).split()
+        if lead and not any(len(w) >= 4 and w in pdf_name for w in lead):
+            conflicts.append(f"The dataset names the case {petitioner} v. {respondent}; the PDF reads {auto.name}.")
+    if auto.bench and bench:
+        strangers = [b for b in auto.bench if not any(same_judge(b, d) for d in bench)]
+        if strangers:
+            conflicts.append("Judge(s) read from the PDF are not in the dataset's bench: " + ", ".join(strangers)
+                             + ". The PDF may hold a different judgment, or a name was misread.")
+
+    opinions = [Opinion(o.author, o.type, list(o.joined_by)) for o in auto.opinions]
+    for o in opinions:
+        if o.author:
+            o.author = next((b for b in bench if same_judge(b, o.author)), o.author)
+    if len(opinions) == 1 and author:
+        opinions[0].author = next((b for b in bench if same_judge(b, author)), author)
+        opinions[0].type = "majority"
+
+    if petitioner and respondent:
+        name = f"{petitioner} v. {respondent}"
+    elif title:
+        name = _party(title)
+    else:
+        name = auto.name
+    lead = petitioner if petitioner and not re.match(r"^(?:state|union|commissioner|director|collector)\b", petitioner, re.IGNORECASE) \
+        else f"{petitioner} v {respondent}" if petitioner else Path(pdf_path).stem
+    from .ids import slugify
+    lead = re.sub(r"\(.*?\)", "", re.sub(r"^(?:justice|dr|shri|smt|mr|mrs|ms|m/s|his holiness|sri)\.?\s+", "", lead, flags=re.IGNORECASE))
+    case_id = ("_".join(slugify(lead).split("_")[:6]) or slugify(Path(pdf_path).stem)) + (f"_{date.year}" if date else "")
+
+    missing = [k for k, v in (("parties", petitioner and respondent), ("date", date), ("bench", bench), ("citation", citations)) if not v]
+    return CaseMeta(
+        case_id=case_id, name=name, date=date, court="Supreme Court", citations=citations, bench=bench,
+        file=str(pdf_path), opinions=opinions, source="dataset", missing=missing, conflicts=conflicts,
+        case_number=row.get("case_number") or auto.case_number, layout=auto.layout,
+        notes="Case details from the Indian Supreme Court Judgments dataset (Dattam Labs, CC-BY 4.0), "
+              "cross-checked against the PDF." + (" " + auto.notes if auto.notes else ""),
+    )
