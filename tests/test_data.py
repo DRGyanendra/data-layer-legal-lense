@@ -95,3 +95,16 @@ class Manifest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HttpRunnerReplies(unittest.TestCase):
+    """The Query API's table shape becomes the driver's list of dicts."""
+
+    def test_rows(self):
+        from legal_lens.graph_store import Neo4jHttpRunner, make_runner
+        reply = {"data": {"fields": ["label", "n"], "values": [["Case", 7], ["Statute", 66]]}, "bookmarks": ["x"]}
+        self.assertEqual(Neo4jHttpRunner.rows(reply), [{"label": "Case", "n": 7}, {"label": "Statute", "n": 66}])
+        self.assertEqual(Neo4jHttpRunner.rows({"data": {"fields": [], "values": []}}), [])
+        with self.assertRaises(RuntimeError):
+            Neo4jHttpRunner.rows({"errors": [{"code": "Neo.ClientError.Database.DatabaseNotFound", "message": "no"}]})
+        self.assertIsInstance(make_runner("https://x.databases.neo4j.io", "u", "p", "d"), Neo4jHttpRunner)

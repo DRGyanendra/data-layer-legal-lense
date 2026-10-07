@@ -42,10 +42,10 @@ def _store(settings: Settings, dim: int):
 
 
 def _graph(settings: Settings):
-    from .graph_store import GraphWriter, Neo4jRunner
+    from .graph_store import GraphWriter, make_runner
 
     settings.require("neo4j_uri", "neo4j_password")
-    runner = Neo4jRunner(settings.neo4j_uri, settings.neo4j_username,
+    runner = make_runner(settings.neo4j_uri, settings.neo4j_username,
                          settings.neo4j_password, settings.neo4j_database)
     return GraphWriter(runner), runner
 
