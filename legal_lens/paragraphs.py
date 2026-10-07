@@ -210,7 +210,7 @@ def _confirms_skip(cands, at: int, expected: int) -> bool:
     for _, later, _ in cands[at + 1:]:
         if later == expected:
             return False
-        if later == number + 1:
+        if number < later <= number + MAX_SKIP:      # the run goes on, even past another lost number
             return True
     return False
 
@@ -254,6 +254,12 @@ def _best_chain(lines: list[Line], first: int = 1) -> tuple[list[tuple[int, int,
         if len(positions) >= 0.8 * len(cands):
             bins = sorted({round(x / X_BIN) for x in positions})
             groups = [[c for c in cands if c[2] is not None and abs(c[2] - b * X_BIN) <= X_BIN] for b in bins]
+            # A law report indents facing pages differently, so one opinion's numbers
+            # sit at two positions. The chain across all positions is tried as well;
+            # it is kept only when it is the longest, so a quoted list at its own
+            # indent still loses to the opinion's own run.
+            if len(bins) > 1:
+                groups.append(cands)
         for group in groups:
             chain = _fill_gaps(_chain(group, allow_start_at_two=True, first=first), cands)
             # prefer the earlier style on a tie: a dotted number is hardest to mistake
