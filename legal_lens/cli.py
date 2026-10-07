@@ -445,6 +445,37 @@ def cmd_scan(args, settings: Settings) -> int:
     return 1 if counts["reject"] else 0
 
 
+def cmd_sample(args, settings: Settings) -> int:
+    """Build the balanced validation sample from the AWS Open Data metadata."""
+    from .dataset import (describe, download_pdf, fetch_metadata, select_sample,
+                          write_draft_manifest, write_sample_csv)
+
+    cache = ROOT / "data" / "cache" / "aws_metadata"
+    print("Reading the AWS Open Data metadata (Dattam Labs, CC-BY 4.0), one parquet file per year...")
+    judgments = fetch_metadata(cache)
+    print(f"  {len(judgments)} English judgments, {min(j.year for j in judgments)}-{max(j.year for j in judgments)}")
+    exclude = set(args.exclude or [])
+    sample = select_sample(judgments, size=args.size, seed=args.seed,
+                           criminal_share=args.criminal_share, exclude_paths=exclude)
+    for line in describe(sample):
+        print(line)
+    out_dir = Path(args.dir)
+    write_sample_csv(sample, out_dir / "sample.csv")
+    write_draft_manifest(sample, out_dir / "cases.aws.draft.yaml")
+    print(f"Sample list written to {out_dir / 'sample.csv'}; draft case records (unchecked) to "
+          f"{out_dir / 'cases.aws.draft.yaml'}")
+    if args.no_download:
+        return 0
+    got = 0
+    for i, j in enumerate(sample, start=1):
+        path = download_pdf(j, out_dir)
+        if path:
+            got += 1
+            print(f"  [{i:3}/{len(sample)}] {path.name}  ({path.stat().st_size // 1024} KB)")
+    print(f"Downloaded {got} of {len(sample)} PDFs to {out_dir}. Next: python -m legal_lens scan {out_dir}")
+    return 0 if got == len(sample) else 1
+
+
 def cmd_evaluate(args, settings: Settings) -> int:
     from .evaluate import load_questions, score
 
@@ -528,6 +559,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default="data/export/chunks.jsonl")
     pdf_options(p)
     p.set_defaults(fn=cmd_export)
+
+    p = sub.add_parser("sample", help="pick and download the balanced validation sample from AWS Open Data")
+    p.add_argument("--dir", default="data/raw/validation", help="where the PDFs and sample.csv go")
+    p.add_argument("--size", type=int, default=100)
+    p.add_argument("--seed", type=int, default=20261007, help="same seed, same sample")
+    p.add_argument("--criminal-share", type=float, default=0.4, help="share of criminal matters per era")
+    p.add_argument("--exclude", nargs="*", help="bucket paths to leave out (e.g. the curated judgments)")
+    p.add_argument("--no-download", action="store_true", help="only write sample.csv and the draft records")
+    p.set_defaults(fn=cmd_sample)
 
     p = sub.add_parser("evaluate", help="hit rate and wrong-document rate on known questions")
     p.add_argument("questions", help="YAML file of questions, see data/eval.example.yaml")
