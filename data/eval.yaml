@@ -1,0 +1,161 @@
+# Hand-written questions with the exact paragraph that answers each one.
+#
+# STATUS: DRAFT - NOT YET VERIFIED BY A PERSON. The paragraph numbers below are
+# the court's own numbers as read by the pipeline from the Supreme Court Reports
+# copies in data/raw/ (jarnail_singh_2018.pdf, joseph_shine_2018.pdf,
+# navtej_johar_2018.pdf). Every number must be checked against the PDF before
+# this file is used as the Phase 2 citation baseline. Until then any score from
+# it is provisional. `note` quotes the opening words of the paragraph to make
+# the check quick. `opinion_index` counts the opinions in the PDF from 0; the
+# paragraph numbering restarts with each opinion, so it is required wherever a
+# judgment has more than one.
+#
+# Written the way a user would ask, not the way the judgment words its answer.
+status: draft
+verified_by: null
+sources:
+  jarnail_singh_2018: one opinion (R.F. Nariman, J.), paragraphs 1-21
+  joseph_shine_2018: four opinions - 0 Dipak Misra CJI (1-58), 1 R.F. Nariman J (1-27), 2 D.Y. Chandrachud J (1-67), 3 Indu Malhotra J (1-16)
+  navtej_johar_2018: four opinions - 0 Dipak Misra CJI (1-254), 1 R.F. Nariman J (1-98), 2 D.Y. Chandrachud J (1-156), 3 Indu Malhotra J (1-21)
+
+questions:
+  # ---- Jarnail Singh v. Lachhmi Narain Gupta (2018)
+  - query: Does the Nagaraj judgment on reservation in promotion need to be reconsidered by a seven-judge bench?
+    case_id: jarnail_singh_2018
+    paragraphs: [21]
+    opinion_index: 0
+    note: "21. Thus, we conclude that the judgment in Nagaraj (supra) does not need to be referred to a seven-Judge Bench..."
+  - query: Must the State collect quantifiable data on the backwardness of Scheduled Castes and Scheduled Tribes before giving them reservation in promotion?
+    case_id: jarnail_singh_2018
+    paragraphs: [21, 14]
+    opinion_index: 0
+    note: "21 ...the conclusion in Nagaraj that the State has to collect quantifiable data showing backwardness ... is invalid; 14. This brings us to whether ... needs to be revisited on the other grounds"
+  - query: Does the creamy layer principle apply to Scheduled Castes and Scheduled Tribes?
+    case_id: jarnail_singh_2018
+    paragraphs: [17, 16]
+    opinion_index: 0
+    note: "17. Therefore, when Nagaraj (supra) applied the creamy layer test to Scheduled Castes and Scheduled Tribes...; 16. We do not think it necessary to go into whether Parliament may or may not exclude the creamy layer"
+  - query: Can the share of SCs and STs in the population be used as the test of whether they are adequately represented in promotions?
+    case_id: jarnail_singh_2018
+    paragraphs: [20]
+    opinion_index: 0
+    note: "20. The learned Attorney General also requested us to lay down that the proportion of Scheduled Castes and Scheduled Tribes to the population of India should be taken to be the test"
+  - query: What caution applies when the Supreme Court is asked to revisit a unanimous Constitution Bench judgment?
+    case_id: jarnail_singh_2018
+    paragraphs: [6]
+    opinion_index: 0
+    note: "6. Since we are asked to revisit a unanimous Constitution Bench judgment, it is important to bear in mind the admonition ... in Keshav Mills"
+  - query: How many of the nine judges in Indra Sawhney applied the creamy layer principle?
+    case_id: jarnail_singh_2018
+    paragraphs: [8]
+    opinion_index: 0
+    note: "8. It is important to note that eight of the nine learned Judges in Indra Sawhney(1) (supra) applied the creamy layer principle"
+  - query: To which two points were the arguments in Jarnail Singh confined?
+    case_id: jarnail_singh_2018
+    paragraphs: [3]
+    opinion_index: 0
+    note: "3. We have heard wide-ranging arguments on either side ... we have confined arguments to two points"
+
+  # ---- Joseph Shine v. Union of India (2018)
+  - query: Is Section 497 of the IPC, the offence of adultery, unconstitutional?
+    case_id: joseph_shine_2018
+    paragraphs: [56, 57, 58]
+    opinion_index: 0
+    note: "56. As we have held that Section 497 IPC is unconstitutional and adultery should not be treated as an offence...; 57 overruled; 58 writ petition allowed"
+  - query: Were Sowmithri Vishnu and V. Revathi overruled in Joseph Shine?
+    case_id: joseph_shine_2018
+    paragraphs: [57]
+    opinion_index: 0
+    note: "57. In view of the foregoing analysis, the decisions in Sowmithri Vishnu (supra) and V. Revathi (supra) stand overruled"
+  - query: Is Section 198 of the CrPC, on who may complain of adultery, valid?
+    case_id: joseph_shine_2018
+    paragraphs: [56]
+    opinion_index: 0
+    note: "56. ...it is appropriate to declare Section 198 CrPC which deals with the procedure for filing a complaint in relation to the offence of adultery"
+  - query: Does Section 497 treat a married woman as her husband's property?
+    case_id: joseph_shine_2018
+    paragraphs: [23]
+    opinion_index: 0
+    note: "23. As we notice, the provision treats a married woman as a property of the husband."
+  - query: Is a married man who has an affair with an unmarried woman or a widow guilty of adultery under Section 497?
+    case_id: joseph_shine_2018
+    paragraphs: [22]
+    opinion_index: 1
+    note: "22. What is apparent on a cursory reading of these ingredients is that a married man, who has sexual intercourse with an unmarried woman or a widow, does not commit the offence"
+  - query: Can Article 15(3) be used to justify exempting women from punishment under Section 497?
+    case_id: joseph_shine_2018
+    paragraphs: [14, 15]
+    opinion_index: 1
+    note: "14. We are of the view that this paragraph does not represent the law correctly...; 15. Article 15(3) refers to the State making laws which therefore, obviously cannot include existing law"
+  - query: What must be established to make out the offence of adultery under Section 497?
+    case_id: joseph_shine_2018
+    paragraphs: [21]
+    opinion_index: 1
+    note: "21. Coming back to Section 497, it is clear that in order to constitute the offence of adultery, the following must be established"
+  - query: Is protecting the sanctity of marriage really the object of Section 497?
+    case_id: joseph_shine_2018
+    paragraphs: [24]
+    opinion_index: 1
+    note: "24. It is clear, therefore, that the ostensible object of Section 497, as pleaded by the State, being to protect and preserve the sanctity of marriage, is not in fact the object"
+  - query: How was the manifest arbitrariness test applied to the adultery provision?
+    case_id: joseph_shine_2018
+    paragraphs: [33, 34]
+    opinion_index: 2
+    note: "33. The test of manifest arbitrariness is rooted in Indian jurisprudence. In E P Royappa...; 34. The decision in Shayara Bano, holds that legislation ... which is manifestly arbitrary"
+  - query: Which countries no longer treat adultery as a crime?
+    case_id: joseph_shine_2018
+    paragraphs: [54]
+    opinion_index: 0
+    note: "54. We may also usefully note here that adultery as a crime is no more prevalent in People's Republic of China, Japan, Australia, Brazil"
+  - query: What did the Law Commission's 156th Report propose about Section 497?
+    case_id: joseph_shine_2018
+    paragraphs: [23]
+    opinion_index: 2
+    note: "23. In its 156th Report, the Law Commission made a proposal ... by suggesting removing the exemption from liability for women under Section 497"
+  - query: Should adultery be a criminal offence or only a ground for divorce?
+    case_id: joseph_shine_2018
+    paragraphs: [16]
+    opinion_index: 3
+    note: "16. The issue remains as to whether 'adultery' must be treated as a penal offence subject to criminal sanctions, or marital wrong which is a valid ground for divorce."
+  - query: Does a pre-constitutional law like Section 497 enjoy a presumption of constitutionality?
+    case_id: joseph_shine_2018
+    paragraphs: [10]
+    opinion_index: 3
+    note: "10. Section 497 is a pre-constitutional law which was enacted in 1860. There would be no presumption of constitutionality in a pre-constitutional law"
+
+  # ---- Navtej Singh Johar v. Union of India (2018)
+  - query: Is Section 377 IPC unconstitutional so far as it criminalises consensual sex between adults?
+    case_id: navtej_johar_2018
+    paragraphs: [252, 253]
+    opinion_index: 0
+    note: "252. Thus analysed, Section 377 IPC, so far as it penalizes any consensual sexual activity between two adults ... cannot be regarded...; 253. In view of the aforesaid analysis, we record our conclusions in seriatim"
+  - query: Was Suresh Kumar Koushal v. Naz Foundation overruled?
+    case_id: navtej_johar_2018
+    paragraphs: [96]
+    opinion_index: 1
+    note: "96. For all these reasons therefore, we are of the view that, Suresh Kumar Koushal (supra) needs to be, and is hereby, overruled."
+  - query: What did the court direct about publicising the Navtej Johar judgment and sensitising officials?
+    case_id: navtej_johar_2018
+    paragraphs: [98]
+    opinion_index: 1
+    note: "98. We are also of the view that the Union of India shall take all measures to ensure that this judgment is given wide publicity"
+  - query: What did Justice Chandrachud hold and declare about Section 377 and the rights of the LGBT community?
+    case_id: navtej_johar_2018
+    paragraphs: [156]
+    opinion_index: 2
+    note: "156. We hold and declare that: (i) Section 377 of the Penal Code, in so far as it criminalises consensual sexual conduct between adults of the same sex, is unconstitutional"
+  - query: In what words did Justice Indu Malhotra say that history owes an apology to the LGBT community?
+    case_id: navtej_johar_2018
+    paragraphs: [20]
+    opinion_index: 3
+    note: "20. History owes an apology to the members of this community and their families, for the delay in providing redressal"
+  - query: According to Justice Malhotra, what was wrong with the reasoning in Koushal?
+    case_id: navtej_johar_2018
+    paragraphs: [19]
+    opinion_index: 3
+    note: "19. The fallacy in the Judgment of Suresh Kumar Koushal & Anr. v. Naz Foundation & Ors. (supra) is that"
+  - query: What rights did Writ Petition (Criminal) No. 76 of 2016 ask the court to declare?
+    case_id: navtej_johar_2018
+    paragraphs: [10]
+    opinion_index: 0
+    note: "10. Writ Petition (Criminal) No. 76 of 2016 was filed for declaring 'right to sexuality', 'right to sexual autonomy' and 'right to choice of a sexual partner'"

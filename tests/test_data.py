@@ -95,3 +95,43 @@ class Manifest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HttpRunnerReplies(unittest.TestCase):
+    """The Query API's table shape becomes the driver's list of dicts."""
+
+    def test_rows(self):
+        from legal_lens.graph_store import Neo4jHttpRunner, make_runner
+        reply = {"data": {"fields": ["label", "n"], "values": [["Case", 7], ["Statute", 66]]}, "bookmarks": ["x"]}
+        self.assertEqual(Neo4jHttpRunner.rows(reply), [{"label": "Case", "n": 7}, {"label": "Statute", "n": 66}])
+        self.assertEqual(Neo4jHttpRunner.rows({"data": {"fields": [], "values": []}}), [])
+        with self.assertRaises(RuntimeError):
+            Neo4jHttpRunner.rows({"errors": [{"code": "Neo.ClientError.Database.DatabaseNotFound", "message": "no"}]})
+        self.assertIsInstance(make_runner("https://x.databases.neo4j.io", "u", "p", "d"), Neo4jHttpRunner)
+
+
+class HttpRunnerRetries(unittest.TestCase):
+    def test_a_dropped_connection_is_retried_and_a_client_error_is_not(self):
+        import urllib.error
+        from legal_lens.graph_store import Neo4jHttpRunner
+        runner = Neo4jHttpRunner("https://x.databases.neo4j.io", "u", "p", "d")
+        runner.RETRY_WAITS = (0, 0)
+        calls = []
+        def flaky(body):
+            calls.append(1)
+            if len(calls) < 3:
+                raise urllib.error.URLError("Connection reset by peer")
+            return {"data": {"fields": ["ok"], "values": [[1]]}}
+        runner._send = flaky
+        self.assertEqual(runner("RETURN 1 AS ok", {}), [{"ok": 1}])
+        self.assertEqual(len(calls), 3)
+        def unauthorized(body):
+            raise RuntimeError("Neo4j Query API answered 401: Invalid credential.")
+        runner._send = unauthorized
+        with self.assertRaises(RuntimeError):
+            runner("RETURN 1", {})
+        def always_down(body):
+            raise urllib.error.URLError("down")
+        runner._send = always_down
+        with self.assertRaisesRegex(RuntimeError, "after 3 attempts"):
+            runner("RETURN 1", {})

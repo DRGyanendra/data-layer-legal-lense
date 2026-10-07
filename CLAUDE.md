@@ -14,7 +14,7 @@ Team: this folder (`legal_lens/`) is the **data layer** — turning judgment
 PDFs into clean, citable chunks ready to load. Backend/RAG orchestration and
 the frontend are owned by teammates and live outside this repo.
 
-## What is built and tested (117 unit tests, `python -m unittest discover -s tests -t .`)
+## What is built and tested (147 unit tests, `python -m unittest discover -s tests -t .`)
 
 - **`pdf_extract.py`** — text + OCR extraction, two-column detection and
   correct reading order, page-damage scoring, site-furniture stripping
@@ -42,11 +42,16 @@ the frontend are owned by teammates and live outside this repo.
   verdict → payload for one case (`BuiltCase`).
 - **`cli.py`** / **`__main__.py`** — `scan`, `inspect`, `check`, `ingest`,
   `export`, `evaluate` commands (see below).
+- **`dataset.py`** — the AWS Open Data bucket (Dattam Labs, CC-BY 4.0):
+  per-year metadata, the balanced `sample`, IndicLegalQA matching
+  (`questions`), and the dataset record as a third metadata source
+  (`meta_source: "dataset"`, cross-checked against the PDF).
 - **`vector_store.py`** / **`graph_store.py`** / **`embed.py`** — Qdrant,
-  Neo4j and BGE-M3 loaders. **Written but never run against live services**
-  — no network access in the environment these were built in.
+  Neo4j and BGE-M3 loaders. Run against Qdrant Cloud and Neo4j Aura on
+  2026-10-07 (Aura over its HTTPS Query API where Bolt cannot get out).
 - **`evaluate.py`** — hit@k, MRR, DRM@k (document-level retrieval mismatch)
-  scoring against a question set. No question set or baseline exists yet.
+  scoring against a question set; a question with no paragraph counts the
+  right case as a hit. First baseline recorded in `docs/BASELINE.md`.
 
 Full field-level reference: `docs/SCHEMA.md`.
 
@@ -73,43 +78,44 @@ dissenting) are recorded by hand.
 
 ## What has and has not been run
 
-**Run:** reading, splitting, chunking, metadata, and the quality verdict —
-on 7 real judgments (`data/raw/*.pdf`) and 15 synthetic layout fixtures
-(`tests/test_any_judgment.py`). 3 of the 7 real judgments pass clean
-(Jarnail Singh, Joseph Shine, Navtej Johar); 4 are flagged `review`
-(Vineeta Sharma — full OCR; Jacob Mathew — no paragraph numbers;
-Kesavananda Bharati — law-report scan, OCR-damaged; Puttaswamy — this file
-is the 2015 referral order, not the 2017 privacy judgment, and is partly
-unnumbered).
+**Run (2026-10-07):** the whole pipeline end to end against live services.
+- `scan` on 167 judgments: the 7 curated SCR copies (7 review), the balanced
+  100-judgment sample from the AWS bucket (2 ok / 96 review / 2 reject; 41
+  carry the court's paragraph numbers) and the 60-judgment IndicLegalQA set
+  (60 review; 52 numbered). Reports sit beside each sample's `sample.csv`.
+- `ingest` of 67 judgments into Qdrant (`judgment_chunks`: 7,917 points) and
+  Neo4j (883 Case / 75 Judge / 740 Statute; 66-row mapping loaded).
+- `evaluate`: 478 IndicLegalQA questions — hit@5 0.84, MRR 0.73, DRM@5 0.27;
+  27 hand-written paragraph-exact questions (`data/eval.yaml`, **draft, not yet
+  verified by a person**) — hit@5 0.74, MRR 0.53, provisional. Details in
+  `docs/BASELINE.md`.
 
-**Never run:** the Qdrant loader, the Neo4j loader, the real BGE-M3
-embedder, and the PyMuPDF reader — this environment has no network access.
-Retrieval quality (as opposed to parsing quality) is completely unmeasured:
-no evaluation dataset or test questions exist yet.
+**Not yet run:** the PyMuPDF reader on real files; the full 974 IndicLegalQA
+judgments; anything from the "planned improvements" list — by design, nothing
+there starts until the baseline above has been reviewed.
 
 ## Immediate next steps (in order)
 
-1. `python -m legal_lens check` then `ingest --dir data/raw` against your
-   own Qdrant/Neo4j instances; fix whatever errors come up first.
-2. Pull a balanced ~100-judgment sample from the AWS Open Data "Indian
-   Supreme Court Judgments" registry (Dattam Labs, CC-BY 4.0), combine with
-   the originals, run `scan`, review `scan_report.csv`.
-3. Write 20-30 test questions with exact known paragraph answers (plus run
-   IndicLegalQA questions through `evaluate`) to get a first real hit@k/MRR
-   baseline — nothing past this point should be adopted without beating
-   this baseline.
-4. Only after a baseline exists: per-chunk context sentences (Anthropic
-   Contextual Retrieval style), OpenNyAI's trained rhetorical-role model,
-   an embedding-model comparison (BGE-M3 vs a legal-tuned alternative),
-   finishing the IPC/BNS mapping table past its 66-row seed.
+1. A person verifies every paragraph number in `data/eval.yaml` against the
+   PDFs in `data/raw/` and changes `status: draft` to `verified`. Until then
+   the paragraph-level baseline in `docs/BASELINE.md` is provisional.
+2. Review the baseline. Only then start the planned improvements, one at a
+   time, each behind a switch and each recorded in `docs/BASELINE.md`:
+   per-chunk context sentences (Anthropic Contextual Retrieval style),
+   OpenNyAI's trained rhetorical-role model, an embedding-model comparison
+   (BGE-M3 vs a legal-tuned alternative), the IPC/BNS table past 66 rows.
+3. Corpus scale-up (the rest of the AWS bucket) only if the baseline review
+   finds coverage, not retrieval, to be the weak point.
 
 ## Known constraints to respect when editing
 
 - Chunk size ceiling is 384 tokens; `quality.py` rejects anything over it.
 - A chunk's `opinion_type` of `unknown` must never be presented by the
   backend as the court's holding — preserve that field, don't default it.
-- Auto-read metadata (`meta_source: "auto"`) is marked separately from a
-  hand-checked manifest entry (`"manifest"`) — never merge the two silently.
+- Auto-read metadata (`meta_source: "auto"`) and dataset metadata
+  (`"dataset"`, from the AWS bucket's record, cross-checked against the PDF)
+  are marked separately from a hand-checked manifest entry (`"manifest"`) —
+  never merge the three silently; only `manifest` was read by a person.
 - `reject`-verdict files must not be loadable without `--force`; don't
   loosen this to "fix" a low pass rate — find a cleaner source PDF instead.
 - A model-written context sentence (when added) is for search indexing

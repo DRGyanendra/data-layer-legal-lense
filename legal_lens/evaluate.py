@@ -4,6 +4,7 @@ Give it questions whose answer you know: the case and the paragraph(s)
 where the answer is. It reports, for the top k results:
 
   hit@k   share of questions where a retrieved chunk covers a gold paragraph
+          (or, for a question with no paragraph given, comes from the right case)
   MRR     mean of 1/rank of the first such chunk (0 when none)
   DRM@k   document-level retrieval mismatch: the share of retrieved chunks
           that come from the wrong case altogether
@@ -58,7 +59,7 @@ def load_questions(path: str | Path) -> list[Question]:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
     questions = []
     for raw in data.get("questions", []):
-        paragraphs = raw["paragraphs"]
+        paragraphs = raw.get("paragraphs") or []
         questions.append(Question(
             raw["query"], raw["case_id"],
             [paragraphs] if isinstance(paragraphs, int) else list(paragraphs),
@@ -73,6 +74,8 @@ def _covers(hit: Hit, question: Question) -> bool:
         return False
     if question.opinion_index is not None and p.get("opinion_index") != question.opinion_index:
         return False
+    if not question.paragraphs:                  # no paragraph known: the right case is a hit
+        return p.get("doc_type") == "judgment"
     return any(p["paragraph_num"] <= n <= p["para_end"] for n in question.paragraphs)
 
 

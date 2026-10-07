@@ -45,8 +45,10 @@ class CaseMeta:
     overrules: list[str] = field(default_factory=list)   # citations of cases this one overrules
     notes: str | None = None
     summary: str | None = None      # one line; embedded with every chunk of the case
-    source: str = "manifest"        # 'manifest' (a person checked it) or 'auto' (read from the PDF)
+    source: str = "manifest"        # 'manifest' (a person checked it), 'dataset' (from the source
+                                    # dataset's metadata, cross-checked against the PDF) or 'auto' (read from the PDF)
     missing: list[str] = field(default_factory=list)     # what an automatic reading could not find
+    conflicts: list[str] = field(default_factory=list)   # where the dataset record and the PDF disagree
     case_number: str | None = None  # 'WRIT PETITION (CRIMINAL) NO. 194 OF 2017'
     layout: str | None = None       # how the PDF was laid out, when read automatically
 
