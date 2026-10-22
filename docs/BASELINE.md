@@ -27,18 +27,23 @@ The set has no paragraph numbers, so a hit is any passage from the right case.
 | 5 | **0.84** | **0.73** | **0.27** |
 | 10 | 0.86 | 0.73 | 0.31 |
 
-77 of 478 questions miss at k=5. They cluster on a few cases: *Dilawar* (12),
-*Greater Bombay Co-operative Bank* (8), *Pr. Commissioner of Income Tax, Shimla*
-(5), *Menoka Malik* (5). Many IndicLegalQA questions name the case in the
+77 of 478 questions miss at k=5. They clustered on four cases, but three of
+those clusters were labelling errors, not retrieval misses: the IndicLegalQA →
+bucket matcher accepted a same-day judgment sharing one word with the case
+name, so 25 questions about *Satpal v. State of Haryana*, *M.D. Jain v.
+Bhagyavathi* and *Western Coalfields v. Commissioner of Central Excise* were
+scored against *Dilawar*, *Greater Bombay Co-operative Bank* and *PCIT
+Shimla*. The two-sided matcher (October 2026) removes them; the corrected set
+has 453 questions and scores hit@5 0.88 (see the record below). *Menoka Malik*
+(5 misses) is the one genuine retrieval cluster. Many IndicLegalQA questions name the case in the
 question ("Who is the respondent in X v. Y?"), which favours the case card;
 questions that do not name the case are the harder, more realistic ones.
 
-## 5b. Right paragraph — hand-written set, 27 questions over 3 judgments — PROVISIONAL
+## 5b. Right paragraph — hand-written set, 27 questions over 3 judgments — VERIFIED
 
-Source: `data/eval.yaml` (**status: draft**). The paragraph numbers are the
-pipeline's reading of the SCR copies and have **not yet been verified by a
-person against the PDFs**. Until that sign-off these numbers are provisional
-and must not be used as the gate for any improvement.
+Source: `data/eval.yaml` (**status: verified**, Kanan Kotwani, October 2026:
+all 27 paragraph citations checked against the PDFs, none changed). This is
+the citation-level gate for every planned improvement.
 
 | k | paragraph-level hit@k (right case *and* a chunk covering the gold paragraph, in the right opinion) | MRR | case-level hit@k (same questions, paragraph ignored) |
 | --- | --- | --- | --- |
@@ -65,3 +70,4 @@ python -m legal_lens evaluate data/eval.yaml --k 5             # provisional unt
 | Date | Change tested | 5a hit@5 / MRR / DRM@5 | 5b hit@5 / MRR | Kept? |
 | --- | --- | --- | --- | --- |
 | 2026-10-07 | baseline as above | 0.84 / 0.73 / 0.27 | 0.74 / 0.53 (provisional) | — |
+| 2026-10-22 | IndicLegalQA labels corrected (two-sided matcher; 478 → 453 questions), stores unchanged; eval.yaml verified | 0.88 / 0.77 / 0.23 (k=10: 0.90 / 0.77 / 0.27) | 0.74 / 0.53 (verified) | yes — corrects the measure, not the system |
