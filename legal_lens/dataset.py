@@ -464,8 +464,34 @@ _STOP = {"state", "union", "india", "others", "another", "anr", "ors", "versus",
          "private", "company", "singh", "kumar", "govt", "government", "secretary", "ltd"}
 
 
+# Words that sit on one side of thousands of cases, so sharing one says nothing
+# about whether two case names are the same case: "State of Haryana",
+# "Commissioner of Income Tax". Used only for matching, never for naming.
+_GENERIC = {
+    "andhra", "arunachal", "assam", "bihar", "chhattisgarh", "goa", "gujarat", "haryana", "himachal", "jharkhand",
+    "karnataka", "kerala", "madhya", "maharashtra", "manipur", "meghalaya", "mizoram", "nagaland", "odisha",
+    "orissa", "punjab", "rajasthan", "sikkim", "tamil", "nadu", "telangana", "tripura", "uttar", "uttarakhand",
+    "pradesh", "west", "bengal", "delhi", "jammu", "kashmir", "ladakh", "chandigarh", "puducherry", "pondicherry",
+    "territory", "national", "capital",
+    "commissioner", "principal", "income", "central", "excise", "customs", "service", "director", "general",
+    "collector", "deputy", "assistant", "officer", "registrar", "chief", "department", "ministry", "inspector",
+    "police", "station", "investigation", "bureau", "authority", "board", "corporation", "municipal",
+    "appellant", "respondent", "petitioner", "anor", "etc",
+}
+
+
 def _name_words(name: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z]{4,}", name.lower()) if w not in _STOP}
+    return {w for w in re.findall(r"[a-z]{4,}", name.lower()) if w not in _STOP and w not in _GENERIC}
+
+
+def _sides_agree(qa_name: str, title: str) -> bool:
+    """Every side of "X vs. Y" that has a distinctive word must find one in the
+    bucket title. One shared word is not enough: on a busy day "Satpal vs. State
+    of Haryana" and "Dilawar v. State of Haryana" share "Haryana" and nothing else."""
+    title_words = _name_words(title)
+    sides = [_name_words(s) for s in re.split(r"\s+(?:vs?\.?|versus)\s+", qa_name, flags=re.IGNORECASE)]
+    sides = [w for w in sides if w]
+    return bool(sides) and all(w & title_words for w in sides)
 
 
 def _qa_date(text: str):
@@ -481,8 +507,9 @@ def _qa_date(text: str):
 
 
 def match_indiclegalqa(pairs: list[dict], judgments: list[Judgment]) -> tuple[dict[tuple, Judgment], list[tuple]]:
-    """Which bucket judgment each IndicLegalQA case is: same decision date and
-    the most party words in common, taken only when one candidate stands out.
+    """Which bucket judgment each IndicLegalQA case is: same decision date,
+    both sides of the case name found in the title (`_sides_agree`), and the
+    most party words in common, taken only when one candidate stands out.
     Returns {(case_name, date_text): judgment} and the unmatched cases."""
     by_date: dict = {}
     for j in judgments:
@@ -492,7 +519,8 @@ def match_indiclegalqa(pairs: list[dict], judgments: list[Judgment]) -> tuple[di
     for key in dict.fromkeys((r["case_name"], r.get("judgement_date") or r.get("judgment_date") or "") for r in pairs):
         date = _qa_date(key[1])
         words = _name_words(key[0])
-        scored = sorted(((len(words & _name_words(j.title)), j) for j in by_date.get(date.isoformat() if date else "", [])),
+        scored = sorted(((len(words & _name_words(j.title)), j) for j in by_date.get(date.isoformat() if date else "", [])
+                         if _sides_agree(key[0], j.title)),
                         key=lambda x: -x[0])
         if scored and scored[0][0] >= 1 and (len(scored) == 1 or scored[0][0] > scored[1][0]):
             matched[key] = scored[0][1]

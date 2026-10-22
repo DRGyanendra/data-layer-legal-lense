@@ -195,5 +195,54 @@ class RecordAsCaseDetails(unittest.TestCase):
         self.assertIsNone(dataset_meta(self.folder.parent / "elsewhere.pdf", self.auto))
 
 
+
+class MatchIndicLegalQA(unittest.TestCase):
+    """The three false matches found in the first 60-judgment set (7 Oct 2026):
+    same decision date, one shared word that names nothing in particular."""
+
+    def judgments(self, *titles_dates):
+        return [judgment_from_row(row(title=t, petitioner=t.split(" versus ")[0], respondent=t.split(" versus ")[1],
+                                      decision_date=d, path=f"P_{i}")) for i, (t, d) in enumerate(titles_dates)]
+
+    def qa(self, name, date):
+        return [{"case_name": name, "judgement_date": date, "question": "q", "answer": "a"}]
+
+    def test_a_shared_state_name_is_not_a_match(self):
+        from legal_lens.dataset import match_indiclegalqa
+        js = self.judgments(("DILAWAR versus THE STATE OF HARYANA & ANR.", "01-05-2018"))
+        matched, unmatched = match_indiclegalqa(self.qa("Satpal vs. State of Haryana", "1st May 2018"), js)
+        self.assertEqual((matched, len(unmatched)), ({}, 1))
+
+    def test_a_shared_office_is_not_a_match(self):
+        from legal_lens.dataset import match_indiclegalqa
+        js = self.judgments(("PR. COMMISSIONER OF INCOME TAX SHIMLA versus M/S AARHAM SOFTRONICS", "20-02-2019"))
+        matched, _ = match_indiclegalqa(
+            self.qa("Western Coalfields Ltd. vs. Commissioner of Central Excise, Trichy/Madurai", "20th February 2019"), js)
+        self.assertEqual(matched, {})
+
+    def test_one_side_matching_is_not_enough(self):
+        from legal_lens.dataset import match_indiclegalqa
+        js = self.judgments(("THE GREATER BOMBAY CO-OPERATIVE BANK LIMITED versus MR. NAGRAJ GANESHMAL JAIN & ORS.",
+                             "26-07-2017"))
+        matched, _ = match_indiclegalqa(self.qa("M.D. Jain vs Bhagyavathi & Ors.", "26th July 2017"), js)
+        self.assertEqual(matched, {})
+
+    def test_the_right_case_still_matches(self):
+        from legal_lens.dataset import match_indiclegalqa
+        js = self.judgments(("DILAWAR versus THE STATE OF HARYANA & ANR.", "01-05-2018"),
+                            ("SATPAL versus THE STATE OF HARYANA", "01-05-2018"))
+        pairs = self.qa("Dilawar vs. The State of Haryana", "1st May 2018") + self.qa("Satpal vs. State of Haryana", "1st May 2018")
+        matched, unmatched = match_indiclegalqa(pairs, js)
+        self.assertEqual({k[0]: j.title for k, j in matched.items()}, {
+            "Dilawar vs. The State of Haryana": "DILAWAR versus THE STATE OF HARYANA & ANR.",
+            "Satpal vs. State of Haryana": "SATPAL versus THE STATE OF HARYANA"})
+        self.assertEqual(unmatched, [])
+
+    def test_sides_may_be_swapped_in_an_appeal(self):
+        from legal_lens.dataset import _sides_agree
+        self.assertTrue(_sides_agree("Menoka Malik and others vs. The State of West Bengal and others",
+                                     "MENOKA MALIK AND OTHERS versus THE STATE OF WEST BENGAL AND OTHERS"))
+        self.assertTrue(_sides_agree("Union of India vs. Apollo Institute", "APOLLO INSTITUTE versus UNION OF INDIA"))
+
 if __name__ == "__main__":
     unittest.main()
