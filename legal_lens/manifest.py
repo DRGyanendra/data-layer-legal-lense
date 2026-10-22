@@ -49,6 +49,10 @@ class CaseMeta:
                                     # dataset's metadata, cross-checked against the PDF) or 'auto' (read from the PDF)
     missing: list[str] = field(default_factory=list)     # what an automatic reading could not find
     conflicts: list[str] = field(default_factory=list)   # where the dataset record and the PDF disagree
+    # Where each case detail came from, when read automatically: {'parties': 'pdf', 'date': 'dataset', ...}.
+    # 'pdf' (read from the PDF; the dataset had nothing to compare), 'pdf+dataset' (both, and they agree),
+    # 'pdf, dataset differs' (PDF kept, conflict recorded), 'dataset' (the PDF had nothing), 'missing'.
+    field_sources: dict[str, str] = field(default_factory=dict)
     case_number: str | None = None  # 'WRIT PETITION (CRIMINAL) NO. 194 OF 2017'
     layout: str | None = None       # how the PDF was laid out, when read automatically
 

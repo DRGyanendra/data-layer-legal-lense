@@ -128,8 +128,11 @@ class RecordAsCaseDetails(unittest.TestCase):
         self.assertEqual([(o.author, o.type) for o in meta.opinions], [("R.C. Lahoti", "majority")])
         self.assertEqual((meta.case_id, meta.case_number), ("jacob_mathew_2005", "CRIMINAL APPEAL No. 144/2004"))
         self.assertEqual((meta.missing, meta.conflicts), ([], []))
+        self.assertEqual(meta.field_sources, {
+            "parties": "pdf+dataset", "date": "pdf+dataset", "bench": "pdf+dataset",
+            "citation": "dataset", "author": "pdf+dataset"})
 
-    def test_a_disagreement_with_the_pdf_is_recorded(self):
+    def test_a_disagreement_keeps_the_pdf_and_is_recorded(self):
         import datetime as dt
         from legal_lens.dataset import dataset_meta
         self.auto.date = dt.date(2005, 8, 15)
@@ -137,7 +140,55 @@ class RecordAsCaseDetails(unittest.TestCase):
         self.auto.name = "Something Else v. Union of India"
         meta = dataset_meta(self.pdf, self.auto)
         self.assertEqual(len(meta.conflicts), 3, meta.conflicts)
-        self.assertEqual(meta.date, dt.date(2005, 8, 5))            # the record's value is kept
+        self.assertEqual(meta.date, dt.date(2005, 8, 15))           # the PDF's value is kept
+        self.assertEqual(meta.name, "Something Else v. Union of India")
+        self.assertEqual(meta.bench, ["R.C. Lahoti", "K. Roy"])
+        for key in ("parties", "date", "bench"):
+            self.assertEqual(meta.field_sources[key], "pdf, dataset differs")
+        self.assertEqual(meta.case_id, "jacob_mathew_2005")         # the identifier stays the record's
+
+    def test_the_record_fills_only_what_the_pdf_lacks(self):
+        from legal_lens.dataset import dataset_meta
+        self.auto.date, self.auto.name = None, "jacob_mathew_file"
+        self.auto.missing = ["parties", "date", "citation"]
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(meta.name, "Jacob Mathew v. State of Punjab")
+        self.assertEqual(meta.date.isoformat(), "2005-08-05")
+        self.assertEqual((meta.field_sources["parties"], meta.field_sources["date"]), ("dataset", "dataset"))
+        self.assertEqual((meta.missing, meta.conflicts), ([], []))
+
+    def test_an_unreadable_pdf_bench_falls_back_to_the_record(self):
+        from legal_lens.dataset import dataset_meta
+        self.auto.bench = ["R.C. Lahoti", "il ,J"]                   # OCR debris taken for a judge
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(meta.bench, ["R.C. Lahoti", "G.P. Mathur", "P.K. Balasubramanyan"])
+        self.assertEqual(meta.field_sources["bench"], "dataset")
+        self.assertEqual(meta.conflicts, [])
+
+    def test_the_pdf_citation_comes_first_and_the_record_adds_the_rest(self):
+        from legal_lens.dataset import dataset_meta
+        self.auto.citations, self.auto.missing = ["(2005) 6 SCC 1"], []
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(meta.citations, ["(2005) 6 SCC 1", "[2005] SUPP. 2 S.C.R. 307", "2005 INSC 384"])
+        self.assertEqual(meta.field_sources["citation"], "pdf+dataset")
+
+    def test_a_different_author_keeps_the_pdf_and_is_recorded(self):
+        from legal_lens.dataset import dataset_meta
+        from legal_lens.manifest import Opinion
+        self.auto.bench = ["R.C. Lahoti", "G.P. Mathur", "P.K. Balasubramanyan"]
+        self.auto.opinions = [Opinion("G.P. Mathur", "majority")]
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(meta.opinions[0].author, "G.P. Mathur")
+        self.assertEqual(meta.field_sources["author"], "pdf, dataset differs")
+        self.assertEqual(len(meta.conflicts), 1, meta.conflicts)
+
+    def test_a_missing_author_is_taken_from_the_record(self):
+        from legal_lens.dataset import dataset_meta
+        from legal_lens.manifest import Opinion
+        self.auto.opinions = [Opinion(None, "unknown")]
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual((meta.opinions[0].author, meta.opinions[0].type), ("R.C. Lahoti", "majority"))
+        self.assertEqual(meta.field_sources["author"], "dataset")
 
     def test_a_pdf_outside_a_sample_folder_has_no_record(self):
         from legal_lens.dataset import dataset_meta

@@ -44,8 +44,8 @@ the frontend are owned by teammates and live outside this repo.
   `export`, `evaluate` commands (see below).
 - **`dataset.py`** — the AWS Open Data bucket (Dattam Labs, CC-BY 4.0):
   per-year metadata, the balanced `sample`, IndicLegalQA matching
-  (`questions`), and the dataset record as a third metadata source
-  (`meta_source: "dataset"`, cross-checked against the PDF).
+  (`questions`), and the dataset record as a fallback metadata source
+  (`meta_source: "dataset"`: PDF first, record fills gaps, conflicts flagged).
 - **`vector_store.py`** / **`graph_store.py`** / **`embed.py`** — Qdrant,
   Neo4j and BGE-M3 loaders. Run against Qdrant Cloud and Neo4j Aura on
   2026-10-07 (Aura over its HTTPS Query API where Bolt cannot get out).
@@ -112,10 +112,14 @@ there starts until the baseline above has been reviewed.
 - Chunk size ceiling is 384 tokens; `quality.py` rejects anything over it.
 - A chunk's `opinion_type` of `unknown` must never be presented by the
   backend as the court's holding — preserve that field, don't default it.
-- Auto-read metadata (`meta_source: "auto"`) and dataset metadata
-  (`"dataset"`, from the AWS bucket's record, cross-checked against the PDF)
-  are marked separately from a hand-checked manifest entry (`"manifest"`) —
-  never merge the three silently; only `manifest` was read by a person.
+- Precedence of case details: a hand-checked manifest entry (`"manifest"`)
+  wins outright. Otherwise **the PDF is the source of truth** and the AWS
+  bucket's record only fills what the PDF did not give (`"dataset"`); where
+  both have a detail and disagree, keep the PDF's reading and record a
+  conflict (a `review` reason) — never override silently. `meta_fields`
+  records the source of each detail. Exceptions: `case_id` (stable key) and
+  the spelling of a judge the PDF also names come from the record. Only
+  `manifest` was read by a person.
 - `reject`-verdict files must not be loadable without `--force`; don't
   loosen this to "fix" a low pass rate — find a cleaner source PDF instead.
 - A model-written context sentence (when added) is for search indexing
