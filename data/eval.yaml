@@ -11,11 +11,11 @@
 # judgment has more than one.
 #
 # Written the way a user would ask, not the way the judgment words its answer.
-status: draft
-verified_by: null
+status: verified
+verified_by: Kanan Kotwani
 sources:
   jarnail_singh_2018: one opinion (R.F. Nariman, J.), paragraphs 1-21
-  joseph_shine_2018: four opinions - 0 Dipak Misra CJI (1-58), 1 R.F. Nariman J (1-27), 2 D.Y. Chandrachud J (1-67), 3 Indu Malhotra J (1-16)
+  joseph_shine_2018: four opinions - 0 Dipak Misra CJI (1-58), 1 R.F. Nariman J (1-28), 2 D.Y. Chandrachud J (1-67), 3 Indu Malhotra J (1-18)
   navtej_johar_2018: four opinions - 0 Dipak Misra CJI (1-254), 1 R.F. Nariman J (1-98), 2 D.Y. Chandrachud J (1-156), 3 Indu Malhotra J (1-21)
 
 questions:
