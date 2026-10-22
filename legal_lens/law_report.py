@@ -26,7 +26,29 @@ from difflib import SequenceMatcher
 
 from .paragraphs import _DELIVERED, Line, _caps_share, _join, _opening, opinion_breaks
 
-_JUDGE_HEADER = re.compile(r"\(\s*([A-Za-z][A-Za-z .&]{1,40}?),?\s*(C\.?\s?J|JJ?)\.?\s*\)\s*\W*\d{0,4}\W*$")
+# '(Khanna, J.)' in the old volumes, '[R. F. NARIMAN, J.]' in the new ones
+_JUDGE_HEADER = re.compile(r"[\[(]\s*(?:DR\.?\s+)?([A-Za-z][A-Za-z .&]{1,40}?),?\s*(C\.?\s?J\.?\s?I?|JJ?)\.?\s*[\])]\s*\W*\d{0,4}\W*$", re.IGNORECASE)
+# a margin letter A-H printed at the end of a line of text: '...of a E'. Only after a
+# lowercase word or punctuation, so 'Annexure A' and 'Schedule B' are left alone.
+# An order, as distinct from a judgment, opens 'The following Order of the Court
+# was passed :' and then 'O R D E R' on a line of its own.
+_ORDER_START = re.compile(r"^\W{0,2}(?:the\s+following\s+orders?\s+of\s+the\s+court\s+(?:was|were)\s+(?:passed|delivered|made)|o\s?r\s?d\s?e\s?r\s*[:.]?$)",
+                          re.IGNORECASE)
+_NOT_A_HEADER = re.compile(r"\b(?:for|himself|herself|and|concurring|dissenting|majority|per)\b", re.IGNORECASE)
+
+
+def _judge_header(text: str):
+    """The judge named in a page header, or None. The author line of an opinion
+    ('MISRA, CJI (For himself and Khanwilkar, J.)') also ends in 'J.)' but its
+    bracket holds words a header never does."""
+    m = _JUDGE_HEADER.search(text)
+    return m if m and not _NOT_A_HEADER.search(m.group(1)) else None
+
+
+_TRAILING_MARGIN = re.compile(r"(?<=[a-z,;:.)’'\"])\s+[A-H]$")
+# ... and at the start of a line: 'G Indian Penal Code', 'B 37. The Court'. 'A' and 'I'
+# are English words, so only B-H, and only before a paragraph number or a lowercase word.
+_LEADING_MARGIN = re.compile(r"^\W{0,2}[B-H]\s+(?=\d{1,3}\.\s|[a-z“‘\"'])")
 _PAGE_ONLY = re.compile(r"^\W*\d{1,4}\s?[a-z]?\W*$")
 _MARGIN_LETTER = re.compile(r"^\W*[A-H]\W*$")
 _JURISDICTION = re.compile(
@@ -95,7 +117,7 @@ def read_law_report(lines: list[Line]) -> LawReport | None:
         return None
     tops = {page: idx[:TOP] for page, idx in pages.items()}
     report_pages = sum(any(_is_report_header(lines[i].text) for i in idx) for idx in tops.values())
-    judge_pages = sum(any(_JUDGE_HEADER.search(lines[i].text) and len(lines[i].text) <= 70 for i in idx)
+    judge_pages = sum(any(_judge_header(lines[i].text) and len(lines[i].text) <= 70 for i in idx)
                       for idx in tops.values())
     if report_pages < max(2, 0.15 * len(pages)) and judge_pages < max(3, 0.25 * len(pages)):
         return None
@@ -126,7 +148,7 @@ def read_law_report(lines: list[Line]) -> LawReport | None:
     for page, idx in tops.items():
         for i in idx:
             text = lines[i].text.strip()
-            named = _JUDGE_HEADER.search(text)
+            named = _judge_header(text)
             if named and len(text) <= 70:
                 judge_on_page[page] = named.group(1).strip()
                 rank_on_page[page] = "C.J." if "C" in named.group(2).upper() else ("JJ." if "JJ" in named.group(2).upper() else "J.")
@@ -137,6 +159,14 @@ def read_law_report(lines: list[Line]) -> LawReport | None:
         text = line.text.strip()
         if text and (_MARGIN_LETTER.match(text) or not re.search(r"[A-Za-z0-9]", text)):
             furniture.add(i)                 # margin letters A-H and specks from the scan
+        else:
+            cleaned = line.text.rstrip()
+            if _TRAILING_MARGIN.search(text) and len(text) > 40:
+                cleaned = _TRAILING_MARGIN.sub("", cleaned)
+            if _LEADING_MARGIN.match(text) and len(text) > 20:
+                cleaned = _LEADING_MARGIN.sub("", cleaned.lstrip())
+            if cleaned != line.text.rstrip():
+                lines[i] = Line(line.page, cleaned, line.x0, line.gap)
 
     # ---- where the court's text begins
     start = None
@@ -146,7 +176,7 @@ def read_law_report(lines: list[Line]) -> LawReport | None:
         if i in furniture:
             continue
         text = lines[i].text.strip()
-        if _DELIVERED.match(text) or _opening(text):
+        if _DELIVERED.match(text) or _opening(text) or _ORDER_START.match(text):
             start = i
             break
     notes: list[str] = []
@@ -193,6 +223,12 @@ def read_law_report(lines: list[Line]) -> LawReport | None:
         found = _opening_for(body, previous_last, run["first"] + 1, judge)
         if found and found[0] > starts[-1][0]:
             at, rest = found
+            # 'R. F. NARIMAN, J. (Concurring) 1. What is before us': the note in
+            # brackets says what kind of opinion it is and belongs with the author;
+            # the numbered first paragraph must start the body on a line of its own.
+            note = re.match(r"^\s*(\([^()]{3,60}\))\s*(.*)$", rest)
+            if note:
+                author, rest = f"{author} {note.group(1)}", note.group(2)
             body[at] = Line(body[at].page, rest, body[at].x0, body[at].gap)     # the name itself is not text
             starts.append((at, author, False))
         else:

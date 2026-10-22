@@ -16,6 +16,7 @@ from pathlib import Path
 
 from .chunking import Chunk, approx_tokens, chunk_paragraphs, context_line
 from .citations import find_case_refs, find_statute_refs
+from .dataset import dataset_meta
 from .embed import Embedder
 from .graph_store import GraphWriter
 from .ids import base_section, citation_key, judge_id, point_id
@@ -87,7 +88,7 @@ def _opinion_for_segment(meta: CaseMeta, split: SplitResult, warnings: list[str]
     """
     if not meta.opinions:
         return {}
-    if meta.source == "auto":                 # read from these very opinions, in the same order
+    if meta.source in ("auto", "dataset"):    # read from these very opinions, in the same order
         return {o.index: (meta.opinions[o.index].author or None, meta.opinions[o.index].type)
                 for o in split.opinions if o.index < len(meta.opinions)}
     found: dict[int, tuple[str, str]] = {}
@@ -199,6 +200,14 @@ def build_case(
         meta = read_meta(pdf_path, extraction.lines, split)
         if meta.notes:
             warnings.append(meta.notes)
+        # A judgment that came from the source dataset has a record there. The PDF's
+        # own reading stays first; the record fills only what the PDF did not give,
+        # and any disagreement becomes a review reason. A manifest entry, when
+        # present, has already won above.
+        recorded = dataset_meta(pdf_path, meta)
+        if recorded is not None:
+            meta = recorded
+            warnings += meta.conflicts
     warnings += check_against_text(meta, extraction.text)
     unnumbered = [o for o in split.opinions if o.numbering == "synthetic"]
     if unnumbered:
@@ -327,6 +336,7 @@ def build_case(
             "citations": meta.citations,
             "judges": meta.bench,
             "meta_source": meta.source,
+            "meta_fields": meta.field_sources,
             "opinion_index": chunk.segment,
             "opinion_author": author,
             "opinion_type": kind,
@@ -367,7 +377,7 @@ def build_case(
         "paragraph_num": 0, "para_end": 0, "para_label": "", "chunk_part": 0, "para_numbering": split.numbering,
         "page_start": 1, "court": meta.court, "date": meta.date_iso,
         "citation": meta.citation, "citations": meta.citations, "judges": meta.bench, "meta_source": meta.source,
-        "opinion_index": 0, "opinion_author": None, "opinion_type": "unknown",
+        "meta_fields": meta.field_sources, "opinion_index": 0, "opinion_author": None, "opinion_type": "unknown",
         "statutes": top_statutes,
         "statutes_current": list(dict.fromkeys(
             n for s in top_statutes for n in mapping.successors(*s.split(":", 1)))),
