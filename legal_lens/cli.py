@@ -42,10 +42,10 @@ def _store(settings: Settings, dim: int):
 
 
 def _graph(settings: Settings):
-    from .graph_store import GraphWriter, Neo4jRunner
+    from .graph_store import GraphWriter, make_runner
 
     settings.require("neo4j_uri", "neo4j_password")
-    runner = Neo4jRunner(settings.neo4j_uri, settings.neo4j_username,
+    runner = make_runner(settings.neo4j_uri, settings.neo4j_username,
                          settings.neo4j_password, settings.neo4j_database)
     return GraphWriter(runner), runner
 
@@ -171,7 +171,10 @@ def cmd_check(args, settings: Settings) -> int:
     def qdrant():
         settings.require("qdrant_url")
         from qdrant_client import QdrantClient
-        client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key, timeout=30)
+
+        from .vector_store import client_port
+        client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key, timeout=30,
+                              **client_port(settings.qdrant_url))
         names = [c.name for c in client.get_collections().collections]
         return f"connected, collections: {names or 'none yet'}"
 
@@ -445,6 +448,70 @@ def cmd_scan(args, settings: Settings) -> int:
     return 1 if counts["reject"] else 0
 
 
+def cmd_sample(args, settings: Settings) -> int:
+    """Build the balanced validation sample from the AWS Open Data metadata."""
+    from .dataset import (describe, download_pdf, fetch_metadata, select_sample,
+                          write_draft_manifest, write_sample_csv)
+
+    cache = ROOT / "data" / "cache" / "aws_metadata"
+    print("Reading the AWS Open Data metadata (Dattam Labs, CC-BY 4.0), one parquet file per year...")
+    judgments = fetch_metadata(cache)
+    print(f"  {len(judgments)} English judgments, {min(j.year for j in judgments)}-{max(j.year for j in judgments)}")
+    exclude = set(args.exclude or [])
+    sample = select_sample(judgments, size=args.size, seed=args.seed,
+                           criminal_share=args.criminal_share, exclude_paths=exclude)
+    for line in describe(sample):
+        print(line)
+    out_dir = Path(args.dir)
+    write_sample_csv(sample, out_dir / "sample.csv")
+    write_draft_manifest(sample, out_dir / "cases.aws.draft.yaml")
+    print(f"Sample list written to {out_dir / 'sample.csv'}; draft case records (unchecked) to "
+          f"{out_dir / 'cases.aws.draft.yaml'}")
+    if args.no_download:
+        return 0
+    got = 0
+    for i, j in enumerate(sample, start=1):
+        path = download_pdf(j, out_dir)
+        if path:
+            got += 1
+            print(f"  [{i:3}/{len(sample)}] {path.name}  ({path.stat().st_size // 1024} KB)")
+    print(f"Downloaded {got} of {len(sample)} PDFs to {out_dir}. Next: python -m legal_lens scan {out_dir}")
+    return 0 if got == len(sample) else 1
+
+
+def cmd_questions(args, settings: Settings) -> int:
+    """Turn IndicLegalQA into questions for `evaluate`, and list the judgments they need."""
+    import json
+    import random
+
+    from .dataset import (describe, download_pdf, fetch_metadata, match_indiclegalqa, write_draft_manifest,
+                          write_indiclegalqa_questions, write_sample_csv)
+
+    pairs = json.loads(Path(args.json).read_text(encoding="utf-8"))
+    judgments = fetch_metadata(ROOT / "data" / "cache" / "aws_metadata")
+    matched, unmatched = match_indiclegalqa(pairs, judgments)
+    print(f"{len(pairs)} question-answer pairs over {len(matched) + len(unmatched)} cases: "
+          f"{len(matched)} found in the AWS bucket, {len(unmatched)} not")
+    chosen = sorted({j.path: j for j in matched.values()}.values(), key=lambda j: (j.year, j.path))
+    if args.limit and args.limit < len(chosen):
+        random.Random(args.seed).shuffle(chosen)
+        chosen = sorted(chosen[:args.limit], key=lambda j: (j.year, j.path))
+        keep = {j.path for j in chosen}
+        matched = {k: j for k, j in matched.items() if j.path in keep}
+    out_dir = Path(args.dir)
+    n = write_indiclegalqa_questions(pairs, matched, Path(args.out))
+    write_sample_csv(chosen, out_dir / "sample.csv")
+    write_draft_manifest(chosen, out_dir / "cases.aws.draft.yaml")
+    for line in describe(chosen):
+        print(line)
+    print(f"{n} questions written to {args.out}; their {len(chosen)} judgments are listed in {out_dir / 'sample.csv'}")
+    if args.no_download:
+        return 0
+    got = sum(1 for j in chosen if download_pdf(j, out_dir))
+    print(f"Downloaded {got} of {len(chosen)} PDFs to {out_dir}. Next: scan, then ingest, then evaluate {args.out}")
+    return 0 if got == len(chosen) else 1
+
+
 def cmd_evaluate(args, settings: Settings) -> int:
     from .evaluate import load_questions, score
 
@@ -528,6 +595,24 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default="data/export/chunks.jsonl")
     pdf_options(p)
     p.set_defaults(fn=cmd_export)
+
+    p = sub.add_parser("sample", help="pick and download the balanced validation sample from AWS Open Data")
+    p.add_argument("--dir", default="data/raw/validation", help="where the PDFs and sample.csv go")
+    p.add_argument("--size", type=int, default=100)
+    p.add_argument("--seed", type=int, default=20261007, help="same seed, same sample")
+    p.add_argument("--criminal-share", type=float, default=0.4, help="share of criminal matters per era")
+    p.add_argument("--exclude", nargs="*", help="bucket paths to leave out (e.g. the curated judgments)")
+    p.add_argument("--no-download", action="store_true", help="only write sample.csv and the draft records")
+    p.set_defaults(fn=cmd_sample)
+
+    p = sub.add_parser("questions", help="convert IndicLegalQA to a question file and fetch the judgments it covers")
+    p.add_argument("json", help="the IndicLegalQA JSON file (Mendeley Data, CC BY 4.0)")
+    p.add_argument("--dir", default="data/raw/indiclegalqa", help="where the PDFs and sample.csv go")
+    p.add_argument("--out", default="data/eval.indiclegalqa.yaml")
+    p.add_argument("--limit", type=int, default=0, help="use only this many of the matched judgments (0 = all)")
+    p.add_argument("--seed", type=int, default=20261007)
+    p.add_argument("--no-download", action="store_true")
+    p.set_defaults(fn=cmd_questions)
 
     p = sub.add_parser("evaluate", help="hit rate and wrong-document rate on known questions")
     p.add_argument("questions", help="YAML file of questions, see data/eval.example.yaml")

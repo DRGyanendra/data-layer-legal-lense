@@ -25,8 +25,15 @@ kind (majority, concurring, dissenting) are recorded.
 
 ## What has and has not been run
 
-Run here: reading, splitting, chunking, case details and the verdict, on seven real judgments and
-fifteen generated layouts.
+Run (2026-10-07): reading, splitting, chunking, case details and the verdict on 167 real judgments
+(the 7 curated cases, a balanced 100-judgment sample and a 60-judgment IndicLegalQA set, all from
+the AWS Open Data bucket), and the loaders against Qdrant Cloud and Neo4j Aura: 67 judgments
+loaded (7,917 points; 883 Case / 75 Judge / 740 Statute nodes). First retrieval baseline:
+hit@5 0.84 and MRR 0.73 on 478 IndicLegalQA questions; 0.74 / 0.53 on 27 paragraph-exact
+questions that still await human verification. See `docs/BASELINE.md`.
 
-Never run: the Qdrant loader, the Neo4j loader, the BGE-M3 embedder and the PyMuPDF reader. Expect
-to fix small things the first time `check` and `ingest` run on a machine that can reach them.
+Not yet run: the PyMuPDF reader on real files, and any of the planned improvements.
+
+Other commands added since the first brief: `python -m legal_lens sample` (build the balanced
+validation sample from the AWS bucket) and `python -m legal_lens questions` (turn IndicLegalQA
+into a question file and fetch the judgments it covers).

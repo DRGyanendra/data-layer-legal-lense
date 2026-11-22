@@ -33,7 +33,7 @@ from .paragraphs import Line, SplitResult
 
 _MONTHS = ("january february march april may june july august september october november december").split()
 _MONTH = "|".join(_MONTHS)
-_DATE_MDY = re.compile(rf"\b({_MONTH})\s+(\d{{1,2}})(?:st|nd|rd|th)?\s*,?\s*((?:19|20)\d{{2}})\b", re.IGNORECASE)
+_DATE_MDY = re.compile(rf"\b({_MONTH})\s*(\d{{1,2}})(?:st|nd|rd|th)?\s*,?\s*((?:19|20)\d{{2}})\b", re.IGNORECASE)
 _DATE_DMY = re.compile(rf"\b(\d{{1,2}})(?:st|nd|rd|th)?\s+(?:day\s+of\s+)?({_MONTH})\s*,?\s*((?:19|20)\d{{2}})\b", re.IGNORECASE)
 _DATE_NUM = re.compile(r"\b(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*((?:19|20)\d{2})\b")
 _DATE_PREFIX = re.compile(r"^(?:new\s+delhi|dated?|date\s+of\s+(?:judge?ment|order|decision))\s*[;:,.-]?\s*", re.IGNORECASE)
@@ -69,6 +69,155 @@ _OPINION_KIND = [
 def _caps_share(text: str) -> float:
     letters = [c for c in text if c.isalpha()]
     return sum(c.isupper() for c in letters) / len(letters) if letters else 0.0
+
+
+# ---- the title block of a law-report (Supreme Court Reports) copy
+#
+# A report opens with the parties in capitals, 'v.', the date, the bench in
+# brackets, then the reporter's headnote:
+#
+#     [2008] 15 S.C.R. 735
+#     HARDEEP SINGH                     A      <- margin letters A-H sit at line ends
+#     v.
+#     STATE OF PUNJAB & ORS.
+#     (Criminal Appeal No. 1750 of 2008)
+#     NOVEMBER 7, 2008
+#     [C.K. THAKKER AND D.K. JAIN, JJ.]
+#
+# Scans of the older volumes garble this freely: 'v.' comes out as 't.' or
+# 'Y.', the brackets are mixed, specks make lines of their own, and the
+# extract may open with the tail of the previous case. So the block is read
+# from its one dependable anchor, the bracketed bench, upwards.
+_SCR_CITE = re.compile(
+    r"[\[(]\s*((?:19|20)\d{2})\s*[\])jJ1l]\s*(SUPP\.?\s*)?(\d{1,2})\s*S\.?\s?C\.?\s?R\.?\s*(\d{1,4})\b", re.IGNORECASE)
+_SCR_HEADER_CITE = re.compile(r"^(\d{1,4})\b.*\[((?:19|20)\d{2})\]\s*(\d{1,2})\s*S\.?\s?C\.?\s?R\.?\s*$")
+_SCR_VERSUS = re.compile(
+    r"^\W{0,3}(?:versus|vs?\.?|v/s\.?|[vyt]\.|[vy]|\"·|u\.|\\I\.)(?:\W{0,3}|\W{0,3}[A-Za-z]\W{0,2})$", re.IGNORECASE)
+_BRACKET_OPEN = re.compile(r"^\W{0,3}[\[({]")
+_DISPOSITION = re.compile(
+    r"^(?:appeals?|petitions?|applications?|references?|writs?|s\.?l\.?ps?)\b.{0,30}\b(?:dismissed|allowed|disposed|rejected|"
+    r"answered|accepted)|^(?:conviction|order|judgment|sentence)\b.{0,40}\b(?:set aside|affirmed|upheld|confirmed|restored)",
+    re.IGNORECASE)
+_BRACKET_CLOSE = re.compile(r"[\])}]")
+_RANK_WORD = re.compile(r"\b(?:JJ?|C\.?\s?J)\b")
+_MARGIN_EDGE = re.compile(r"^\s*[A-H]\s+(?=\S)|\s+[A-H]\W*$")
+_JUNK_LINE = re.compile(
+    r"^\W*(?:[A-H]|\d[\d\s'’]{0,5}(?:\s*[A-H])?|[A-Za-z]{1,2}|case\s+details)?\W*$", re.IGNORECASE)   # specks, margin letters, page numbers
+_OCR_DIGIT = str.maketrans({"i": "1", "I": "1", "l": "1", "O": "0", "o": "0"})
+_PAREN_CASE_NO = re.compile(
+    r"^\W{0,2}[\[(].*\b(?:appeals?|petitions?|references?|cases?|applications?|suits?|s\.?l\.?p|w\.?p)\b.*[\])]\W*$",
+    re.IGNORECASE)
+
+
+def _is_report_header_line(text: str) -> bool:
+    name = re.sub(r"[^A-Za-z]", "", text).upper()
+    return len(name) >= 15 and SequenceMatcher(None, name[:19], "SUPREMECOURTREPORTS").ratio() >= 0.72
+
+
+def _bracket_block(window: list[str], start: int) -> tuple[str, int]:
+    """The bracketed text starting at `start`, joined across up to three lines."""
+    block, end = window[start], start
+    while not _BRACKET_CLOSE.search(block) and end + 1 < len(window) and end - start < 2:
+        end += 1
+        block += " " + window[end]
+    return block, end
+
+
+def _bench_inner(block: str) -> str:
+    """The names inside the brackets. A '*' after a name marks the author in
+    the newer volumes; it is not part of the name."""
+    inner = re.sub(r"^\W{0,3}[\[({]", "", _MARGIN_EDGE.sub("", block).strip())
+    return _BRACKET_CLOSE.split(inner)[0].replace("*", "")
+
+
+def _find_bench_block(window: list[str]) -> tuple[int, int] | None:
+    """Where the bracketed bench starts and ends. A block naming a rank ('JJ.',
+    'C.J.') is taken anywhere; one without a rank (OCR lost it) only when it
+    sits right under the parties."""
+    fallback = None
+    for i, t in enumerate(window):
+        t = _MARGIN_EDGE.sub("", t).strip()
+        if not _BRACKET_OPEN.match(t) or _PAREN_CASE_NO.match(t) or _SCR_CITE.search(t):
+            continue
+        block, end = _bracket_block(window, i)
+        if not _BRACKET_CLOSE.search(block):
+            continue
+        inner = _bench_inner(block)
+        if _RANK_WORD.search(inner) and re.search(r"[A-Za-z]{3,}", inner):
+            return i, end
+        if fallback is None and (" AND " in inner.upper() or "," in inner) and _caps_share(inner) >= 0.5:
+            slice_ = window[max(0, i - 6):i]
+            above = [u for u in slice_ if not _JUNK_LINE.match(u)]
+            if above and _caps_share(above[-1]) >= 0.6 and any(_SCR_VERSUS.match(u.strip()) for u in slice_):
+                fallback = (i, end)
+    return fallback
+
+
+def _law_report_title(head: list[str]) -> dict:
+    """Parties (or an 'In re' title), date, bench, case number and SCR citation
+    from the head of a law-report copy. Anything not found is empty."""
+    found: dict = {"petitioner": "", "respondent": "", "title": "", "date": None, "bench": [],
+                   "case_number": None, "citation": None}
+    window = head[:160]
+    for t in window[:40]:
+        m = _SCR_CITE.search(t)
+        if m:
+            found["citation"] = f"({m.group(1)}) {'Supp ' if m.group(2) else ''}{int(m.group(3))} SCR {int(m.group(4))}"
+            break
+        m = _SCR_HEADER_CITE.match(t.strip())       # '916 SUPREME COURT REPORTS [2019] 2 S.C.R.'
+        if m:
+            found["citation"] = f"({m.group(2)}) {int(m.group(3))} SCR {int(m.group(1))}"
+            break
+
+    bench = _find_bench_block(window)
+    if bench:
+        block, _ = _bracket_block(window, bench[0])
+        found["bench"] = _split_bench(_bench_inner(block))
+        anchor = bench[0]
+    else:
+        # no bench: anchor on the first line that is a date and nothing else
+        anchor = next((i for i, t in enumerate(window[:60]) if _is_date_line(_MARGIN_EDGE.sub("", t))), None)
+        if anchor is None:
+            return found
+        found["date"] = _is_date_line(_MARGIN_EDGE.sub("", window[anchor]))
+
+    petitioner: list[str] = []
+    respondent: list[str] = []
+    versus_seen = False
+    i = anchor - 1
+    while i >= 0 and anchor - i <= 14:
+        t = window[i].strip()
+        i -= 1
+        if _SCR_VERSUS.match(t):                    # before the junk test: 'v.' is two characters too
+            versus_seen = True
+            continue
+        if _JUNK_LINE.match(t):
+            continue
+        plain = _MARGIN_EDGE.sub("", t).strip()
+        if not versus_seen and not respondent:
+            # 'May 9, 1980/August 16, 1982': a hearing date and a decision date; the last one counts.
+            # OCR reads '1982' as 'i982': digits in a year are repaired before parsing.
+            candidate = re.sub(r"(?<=[\s,])[iIlOo\d]{4}\b", lambda m: m.group().translate(_OCR_DIGIT), plain.rsplit("/", 1)[-1])
+            date = _is_date_line(candidate) or (_parse_date(candidate) if len(plain) <= 40 else None)
+            if date and not found["date"]:
+                found["date"] = date
+                continue
+            if (_PAREN_CASE_NO.match(plain) or _CASE_NUMBER.search(plain)) and not found["case_number"]:
+                found["case_number"] = re.sub(r"\s+", " ", plain.strip("()[] "))
+                continue
+        words = len(plain.split())
+        prose = _caps_share(plain) < 0.6 and (words > 6 or len(plain) > 60 or _DISPOSITION.match(plain))
+        if _is_report_header_line(plain) or _SCR_CITE.search(plain) or _SCR_HEADER_CITE.match(plain) \
+                or _BRACKET_OPEN.match(plain) or _DISPOSITION.match(plain) or prose:
+            break                                   # the headnote or the previous case's tail
+        plain = re.sub(r"^\d{1,4}\s+(?=[A-Za-z])", "", plain)          # a page number in front of the name
+        (petitioner if versus_seen else respondent).insert(0, plain.strip(" .,;:'\"-–—…•·"))
+
+    if versus_seen and petitioner and respondent:
+        found["petitioner"], found["respondent"] = " ".join(petitioner), " ".join(respondent)
+    elif not versus_seen and respondent and re.search(r"\bIN\s+RE\b", " ".join(respondent), re.IGNORECASE):
+        found["title"] = re.sub(r"\s+", " ", " ".join(respondent)).strip(" ,.:;\"'")
+    return found
 
 
 def title_case(text: str) -> str:
@@ -304,20 +453,29 @@ def read_meta(pdf_path: str | Path, lines: list[Line], split: SplitResult) -> Ca
                     break
             petitioner, respondent = " ".join(above), " ".join(below)
 
-    if split.layout == "law_report":
+    in_re_title = ""
+    report_case_number = None
+    # A short extract (one or two pages) is not recognised as a report by its
+    # page headers, but its bracketed bench still gives it away.
+    if split.layout == "law_report" or (not judis and not kanoon and _find_bench_block(head[:60])):
         layout = "law_report"
-        for t in head[:14]:
-            found = _is_date_line(t)
-            if found and not date:
-                date = found
-        opened = next((i for i, t in enumerate(head[:16]) if t.startswith("(") and re.search(r"\bC\.?\s?J|\bJJ?\b", t)), None)
-        if opened is not None and not bench:
-            block = ""
-            for t in head[opened:opened + 6]:
-                block += " " + t
-                if ")" in t:
-                    break
-            bench = _split_bench(block)
+        title = _law_report_title(head)
+        if title["petitioner"] and title["respondent"]:
+            petitioner, respondent = title["petitioner"], title["respondent"]
+        elif title["title"]:
+            in_re_title = title["title"]
+        else:
+            # the title block was not recognised: at least drop the margin letter
+            # and the citation that the generic reading glues onto the names
+            petitioner = _MARGIN_EDGE.sub("", _SCR_CITE.sub("", petitioner)).strip()
+            respondent = _MARGIN_EDGE.sub("", _SCR_CITE.sub("", respondent)).strip()
+        date = date or title["date"]
+        if not date:
+            date = next((d for d in (_is_date_line(_MARGIN_EDGE.sub("", t)) for t in head[:14]) if d), None)
+        bench = bench or title["bench"]
+        if title["citation"]:
+            citations.append(title["citation"])
+        report_case_number = title["case_number"]
 
     # ---- bench: the signatures at the end of each opinion (the court's own PDFs)
     if not bench:
@@ -404,6 +562,8 @@ def read_meta(pdf_path: str | Path, lines: list[Line], split: SplitResult) -> Ca
             citations.append(f"{m.group(1)} INSC {m.group(2)}")
     if judis:
         case_number = " ".join(_labelled(head, r"CASE\s+NO\.?", _JUDIS_LABEL)[:1]) or None
+    elif report_case_number:
+        case_number = report_case_number
     else:
         case_number = next((re.sub(r"\s+", " ", t) for t in head[:40]
                             if _CASE_NUMBER.search(t) and len(t) <= 110 and not t.endswith(":")), None)
@@ -422,6 +582,9 @@ def read_meta(pdf_path: str | Path, lines: list[Line], split: SplitResult) -> Ca
     petitioner, respondent = _clean_party(petitioner), _clean_party(respondent)
     if petitioner and respondent:
         name = f"{petitioner} v. {respondent}"
+    elif in_re_title:
+        name = title_case(in_re_title)                 # a reference or suo motu matter has no 'v.'
+        petitioner = name
     else:
         name = title_case(re.sub(r"[_-]+", " ", pdf_path.stem))
         missing.append("parties")

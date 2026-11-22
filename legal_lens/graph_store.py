@@ -163,6 +163,84 @@ class Neo4jRunner:
         self._driver.close()
 
 
+class Neo4jHttpRunner:
+    """Runs Cypher over Neo4j Aura's HTTPS Query API (v2), one statement per
+    request. Same Cypher, same graph as Neo4jRunner; for a machine whose only
+    way out is an HTTPS proxy, which the Bolt protocol cannot cross.
+
+    Takes the instance URL ('https://xxxxxxxx.databases.neo4j.io'), the user
+    and password, and the database name. Needs nothing beyond the standard
+    library.
+    """
+
+    def __init__(self, url: str, username: str, password: str, database: str = "neo4j", timeout: int = 60):
+        import base64
+
+        self._url = f"{url.rstrip('/')}/db/{database}/query/v2"
+        self._auth = "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
+        self._timeout = timeout
+
+    RETRY_WAITS = (2, 4, 8)          # seconds; a reset connection or a 5xx is tried again
+
+    def _send(self, body: dict) -> dict:
+        import json
+        import urllib.error
+        import urllib.request
+
+        request = urllib.request.Request(
+            self._url, data=json.dumps(body).encode(), method="POST",
+            headers={"Content-Type": "application/json", "Accept": "application/json", "Authorization": self._auth},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout) as response:
+                return json.loads(response.read().decode())
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode(errors="replace")[:500]
+            raise RuntimeError(f"Neo4j Query API answered {exc.code}: {detail}") from None
+
+    def _post(self, body: dict) -> dict:
+        """One statement, retried a few times when the connection drops or the
+        service answers 5xx. A 4xx (bad Cypher, bad credentials) is not retried."""
+        import time
+        import urllib.error
+
+        for attempt, wait in enumerate((*self.RETRY_WAITS, None)):
+            try:
+                return self._send(body)
+            except (urllib.error.URLError, ConnectionError, TimeoutError) as exc:
+                if wait is None:
+                    raise RuntimeError(f"Neo4j Query API unreachable after {attempt + 1} attempts: {exc}") from None
+            except RuntimeError as exc:
+                if wait is None or " answered 5" not in str(exc):
+                    raise
+            time.sleep(wait)
+
+    @staticmethod
+    def rows(reply: dict) -> list[dict]:
+        """The API's {fields, values} table as the list of dicts the driver gives."""
+        if reply.get("errors"):
+            raise RuntimeError("Neo4j: " + "; ".join(f"{e.get('code')}: {e.get('message')}" for e in reply["errors"]))
+        data = reply.get("data") or {}
+        fields = data.get("fields") or []
+        return [dict(zip(fields, values)) for values in data.get("values") or []]
+
+    def __call__(self, query: str, params: dict | None = None) -> list[dict]:
+        return self.rows(self._post({"statement": query, "parameters": params or {}}))
+
+    def verify(self) -> None:
+        self("RETURN 1 AS ok", {})
+
+    def close(self) -> None:
+        pass
+
+
+def make_runner(uri: str, username: str, password: str, database: str = "neo4j"):
+    """Bolt for a neo4j:// or neo4j+s:// URI, the HTTPS Query API for http(s)://."""
+    if uri.startswith(("http://", "https://")):
+        return Neo4jHttpRunner(uri, username, password, database)
+    return Neo4jRunner(uri, username, password, database)
+
+
 class GraphWriter:
     def __init__(self, run: Runner):
         self.run = run

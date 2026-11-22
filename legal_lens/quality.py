@@ -143,7 +143,7 @@ def assess(built) -> Verdict:
         verdict.add("review", "This is a law-report copy: the headnote was left out and page numbers are pages of this PDF.")
 
     # ---- the case record
-    if meta.source == "auto":
+    if meta.source in ("auto", "dataset"):     # 'dataset': missing from the PDF and from the record
         if "parties" in meta.missing:
             verdict.add("review", "The parties' names were not found; the case is named after the file.")
         if "date" in meta.missing:
@@ -153,6 +153,9 @@ def assess(built) -> Verdict:
         if "citation" in meta.missing:
             verdict.add("note", "No reported citation is printed in the PDF (the court's own PDFs rarely carry one). "
                                 "Passages are cited by case name and date until one is added in data/cases.yaml.")
+    if meta.source == "dataset":
+        for conflict in meta.conflicts:
+            verdict.add("review", conflict)
     if meta.court != "Supreme Court":
         verdict.add("review", f"The court is '{meta.court}', not the Supreme Court.")
 

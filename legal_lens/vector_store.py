@@ -31,6 +31,15 @@ class VectorStore(Protocol):
                case_id: str | None = None, substantive_only: bool = True) -> list[Hit]: ...
 
 
+def client_port(url: str) -> dict:
+    """qdrant-client adds port 6333 to a URL that names none. Qdrant Cloud
+    answers on 443 as well, and 443 is the only port most proxies pass, so a
+    URL without a port is used as written."""
+    from urllib.parse import urlparse
+
+    return {} if urlparse(url).port else {"port": None}
+
+
 class QdrantStore:
     """judgment_chunks in Qdrant. Requires qdrant-client 1.10 or newer."""
 
@@ -44,7 +53,7 @@ class QdrantStore:
     def __init__(self, url: str, api_key: str | None, collection: str, dim: int):
         from qdrant_client import QdrantClient
 
-        self.client = QdrantClient(url=url, api_key=api_key, timeout=60)
+        self.client = QdrantClient(url=url, api_key=api_key, timeout=60, **client_port(url))
         self.collection = collection
         self.dim = dim
 
