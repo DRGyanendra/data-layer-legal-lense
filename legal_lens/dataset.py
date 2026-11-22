@@ -51,7 +51,7 @@ class Judgment:
     decision_date: str        # ISO
     disposal: str
     bench: list[str]          # names in coram order; the author is first when marked
-    author: str | None        # the judge marked * in the coram, if any
+    author: str | None        # the judge eCourts marks with *: always the first listed, NOT reliably the author
     bench_size: int | None
     case_number: str | None   # e.g. CRIMINAL APPEAL No. 144/2004
     headnote: str             # the SCR headnote excerpt, for a draft summary only
@@ -253,7 +253,7 @@ def write_draft_manifest(sample: list[Judgment], out: Path) -> None:
             "date": j.decision_date, "court": "Supreme Court",
             "citations": [c for c in (j.citation, j.neutral_citation) if c],
             "bench": [title_case(b) for b in j.bench],
-            "opinions": [{"author": title_case(j.author), "type": "unknown"}] if j.author else [],
+            "opinions": [],         # the record's author is the first-listed judge, not the author
             "file": f"data/raw/validation/{j.file_stem}.pdf",
             "notes": "Drafted from the AWS Open Data metadata (Dattam Labs, CC-BY 4.0); not yet checked "
                      "against the judgment. Headnote: " + (j.headnote[:300] or "none"),
@@ -323,6 +323,20 @@ def _plausible_judge(name: str) -> bool:
                 and len(re.sub(r"[^A-Za-z]", "", name.split()[-1])) >= 3)    # Roy, Ray, Sen, Beg are real surnames
 
 
+# OCR debris in a case name read from a law-report scan: stray symbols, runs of
+# punctuation, report-header words, and tokens that mix letters and digits
+# ('J9G3', '5CX5'). A real case name can carry a number ('In Re: Article 370'),
+# so digits alone do not make a name unreadable.
+_NAME_NOISE = re.compile(
+    r"[~<>{}|\\^_\[\]\"]|\.\.|,,|[.,;]{2,}|\bsupreme\s+co\w*\s+r\w*|\bs\.\s?c\.\s?r\b"
+    r"|\b(?=[a-z]*\d)(?=\d*[a-z])[a-z\d]{2,}\b", re.IGNORECASE)
+
+
+def _readable_name(name: str) -> bool:
+    """Does a case name read from the PDF look like a case name, not scan debris?"""
+    return bool(name) and len(name) <= 160 and not _NAME_NOISE.search(name)
+
+
 def _parties_agree(pdf_name: str, petitioner: str) -> bool:
     """Does the PDF's case name carry a distinctive word of the record's first party?"""
     pdf_words = re.sub(r"[^a-z ]", "", pdf_name.lower())
@@ -350,6 +364,20 @@ def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
     - the spelling of a judge's name, when the PDF names the same judge
       (`same_judge`). Who sat is the PDF's reading; the record's spelling only
       repairs OCR damage, so one judge is one Judge node in the graph.
+
+    Three limits on "the PDF wins", each measured on the 160-judgment sample
+    (October 2026):
+    - Parties: a name read from the PDF that is scan debris (`_readable_name`)
+      or shares no party word with the record is not a reading of the parties
+      at all (it is usually the tail of the previous case or the page header),
+      so the record's name is used. A clean-looking name that disagrees is
+      also recorded as a conflict: the PDF may hold a different judgment.
+    - Date: a PDF date more than a year away from the record's is a date from
+      the case's story or a misread year, so the record's date is used; the
+      disagreement is still recorded as a conflict.
+    - Author: the record's author is never used. eCourts marks the first-listed
+      judge as the author in all 38,097 multi-judge records, and the PDFs'
+      "delivered by" lines show that is often wrong.
     """
     import datetime as dt
 
@@ -364,21 +392,23 @@ def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
     rec_petitioner, rec_respondent = _party(rec_petitioner), _party(rec_respondent)
     rec_date = dt.date.fromisoformat(row["decision_date"]) if row.get("decision_date") else None
     rec_bench = [clean_judge(b) for b in row.get("bench", "").split(";") if b.strip()]
-    rec_author = clean_judge(row["author"]) if row.get("author") else None
     rec_citations = [c for c in (row.get("citation", ""), row.get("neutral_citation", "")) if c]
 
     sources: dict[str, str] = {}
     conflicts: list[str] = []
 
-    # ---- parties
-    if "parties" not in auto.missing:
-        name = auto.name
-        if rec_petitioner and not _parties_agree(auto.name, rec_petitioner):
-            conflicts.append(f"The dataset names the case {rec_petitioner} v. {rec_respondent}; "
-                             f"the PDF reads {auto.name}. The PDF's reading is kept.")
-            sources["parties"] = "pdf, dataset differs"
-        else:
-            sources["parties"] = "pdf+dataset" if rec_petitioner else "pdf"
+    # ---- parties: the PDF's name, unless it is debris or names other parties
+    rec_name = f"{rec_petitioner} v. {rec_respondent}" if rec_petitioner and rec_respondent else \
+        (_party(title) if title else "")
+    pdf_readable = "parties" not in auto.missing and _readable_name(auto.name)
+    if pdf_readable and (not rec_petitioner or _parties_agree(auto.name, rec_petitioner)):
+        name, sources["parties"] = auto.name, ("pdf+dataset" if rec_petitioner else "pdf")
+    elif pdf_readable and rec_name:
+        conflicts.append(f"The dataset names the case {rec_name}; the PDF reads {auto.name}. "
+                         "The dataset's name is used; check that the PDF is this judgment.")
+        name, sources["parties"] = rec_name, "dataset, pdf differs"
+    elif "parties" not in auto.missing and rec_name:
+        name, sources["parties"] = rec_name, "dataset, pdf unreadable"
     elif rec_petitioner and rec_respondent:
         name, sources["parties"] = f"{rec_petitioner} v. {rec_respondent}", "dataset"
     elif title:
@@ -387,7 +417,11 @@ def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
         name, sources["parties"] = auto.name, "missing"
 
     # ---- date
-    if auto.date:
+    if auto.date and rec_date and abs(auto.date.year - rec_date.year) > 1:
+        conflicts.append(f"The dataset gives the decision date as {rec_date.isoformat()}; the PDF reads "
+                         f"{auto.date.isoformat()}, more than a year away. The dataset's date is used.")
+        date, sources["date"] = rec_date, "dataset, pdf differs"
+    elif auto.date:
         date = auto.date
         if rec_date and rec_date != auto.date:
             conflicts.append(f"The dataset gives the decision date as {rec_date.isoformat()}; "
@@ -431,18 +465,11 @@ def dataset_meta(pdf_path: str | Path, auto) -> "CaseMeta | None":
         sources["citation"] = "dataset" if rec_citations else "missing"
 
     # ---- opinions: always the PDF's (only the text says how many there are and who heads each)
+    # (the record's author is never used: see the docstring)
     opinions = [Opinion(o.author and spelt(o.author), o.type, list(o.joined_by)) for o in auto.opinions]
     if len(opinions) == 1:
         opinions[0].type = "majority"
-        if not opinions[0].author and rec_author:
-            opinions[0].author = spelt(rec_author)
-            sources["author"] = "dataset"
-        elif opinions[0].author and rec_author and not same_judge(opinions[0].author, rec_author):
-            conflicts.append(f"The dataset names {rec_author} as the author; the PDF reads {opinions[0].author}. "
-                             "The PDF's reading is kept.")
-            sources["author"] = "pdf, dataset differs"
-        elif opinions[0].author:
-            sources["author"] = "pdf+dataset" if rec_author else "pdf"
+        sources["author"] = "pdf" if opinions[0].author else "missing"
 
     # ---- the identifier stays the record's (see the docstring)
     case_id = case_id_for(rec_petitioner, rec_respondent, rec_date, Path(pdf_path).stem) if rec_petitioner \

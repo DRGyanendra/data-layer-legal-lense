@@ -118,7 +118,10 @@ there starts until the baseline above has been reviewed.
   both have a detail and disagree, keep the PDF's reading and record a
   conflict (a `review` reason) — never override silently. `meta_fields`
   records the source of each detail. Exceptions: `case_id` (stable key) and
-  the spelling of a judge the PDF also names come from the record. Only
+  the spelling of a judge the PDF also names come from the record; a PDF
+  case name that is scan debris or names other parties, and a PDF date more
+  than a year off, give way to the record (still flagged); the record's
+  author is never used (eCourts stars the first-listed judge). Only
   `manifest` was read by a person.
 - `reject`-verdict files must not be loadable without `--force`; don't
   loosen this to "fix" a low pass rate — find a cleaner source PDF instead.

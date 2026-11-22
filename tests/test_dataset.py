@@ -130,9 +130,9 @@ class RecordAsCaseDetails(unittest.TestCase):
         self.assertEqual((meta.missing, meta.conflicts), ([], []))
         self.assertEqual(meta.field_sources, {
             "parties": "pdf+dataset", "date": "pdf+dataset", "bench": "pdf+dataset",
-            "citation": "dataset", "author": "pdf+dataset"})
+            "citation": "dataset", "author": "pdf"})
 
-    def test_a_disagreement_keeps_the_pdf_and_is_recorded(self):
+    def test_a_disagreement_is_recorded(self):
         import datetime as dt
         from legal_lens.dataset import dataset_meta
         self.auto.date = dt.date(2005, 8, 15)
@@ -140,12 +140,40 @@ class RecordAsCaseDetails(unittest.TestCase):
         self.auto.name = "Something Else v. Union of India"
         meta = dataset_meta(self.pdf, self.auto)
         self.assertEqual(len(meta.conflicts), 3, meta.conflicts)
-        self.assertEqual(meta.date, dt.date(2005, 8, 15))           # the PDF's value is kept
-        self.assertEqual(meta.name, "Something Else v. Union of India")
-        self.assertEqual(meta.bench, ["R.C. Lahoti", "K. Roy"])
-        for key in ("parties", "date", "bench"):
+        self.assertEqual(meta.date, dt.date(2005, 8, 15))           # same year: the PDF's date is kept
+        self.assertEqual(meta.bench, ["R.C. Lahoti", "K. Roy"])     # the PDF's bench is kept
+        for key in ("date", "bench"):
             self.assertEqual(meta.field_sources[key], "pdf, dataset differs")
+        # a name naming other parties is not taken: the record's is used, and flagged
+        self.assertEqual(meta.name, "Jacob Mathew v. State of Punjab")
+        self.assertEqual(meta.field_sources["parties"], "dataset, pdf differs")
         self.assertEqual(meta.case_id, "jacob_mathew_2005")         # the identifier stays the record's
+
+    def test_scan_debris_is_not_a_case_name(self):
+        from legal_lens.dataset import dataset_meta, _readable_name
+        for debris in ("5CX5 SUPREME COURT REPORTS [1954] the court was fully seized",
+                       "J!JG3 leave should not be revoked. Roml,1l Kapur &; S .ns (P",
+                       "Raj A Ram J Aisw Al J9G3 Ap<Il I v. State of Bihar",
+                       "Kolhapur Canesugar Works Ltd. Etc Etc v. Union of I~Dia Febr",
+                       "742 Supreme Co[U20R2T1]R1E0Pso.Cr.Trs. 742 [2021] 10 S.C.R."):
+            self.assertFalse(_readable_name(debris), debris)
+        for name in ("In Re: Article 370 of the Constitution", "Dinesh Jaiswal v. State of M.P.",
+                     "Swamy Shraddananda @ Murali Manohar Mishra v. State of Karnataka", "Ms. Y v. State of Rajasthan"):
+            self.assertTrue(_readable_name(name), name)
+        self.auto.name = "Jacob Mathew v. Sta<te of P~unjab"           # names the right party, but debris
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(meta.name, "Jacob Mathew v. State of Punjab")
+        self.assertEqual(meta.field_sources["parties"], "dataset, pdf unreadable")
+        self.assertEqual(meta.conflicts, [])
+
+    def test_a_date_years_away_is_replaced_and_recorded(self):
+        import datetime as dt
+        from legal_lens.dataset import dataset_meta
+        self.auto.date = dt.date(1973, 10, 4)                         # a date from the case's story
+        meta = dataset_meta(self.pdf, self.auto)
+        self.assertEqual(meta.date, dt.date(2005, 8, 5))
+        self.assertEqual(meta.field_sources["date"], "dataset, pdf differs")
+        self.assertEqual(len(meta.conflicts), 1, meta.conflicts)
 
     def test_the_record_fills_only_what_the_pdf_lacks(self):
         from legal_lens.dataset import dataset_meta
@@ -172,23 +200,19 @@ class RecordAsCaseDetails(unittest.TestCase):
         self.assertEqual(meta.citations, ["(2005) 6 SCC 1", "[2005] SUPP. 2 S.C.R. 307", "2005 INSC 384"])
         self.assertEqual(meta.field_sources["citation"], "pdf+dataset")
 
-    def test_a_different_author_keeps_the_pdf_and_is_recorded(self):
+    def test_the_records_author_is_never_used(self):
+        """eCourts stars the first-listed judge; the PDF says who delivered it."""
         from legal_lens.dataset import dataset_meta
         from legal_lens.manifest import Opinion
         self.auto.bench = ["R.C. Lahoti", "G.P. Mathur", "P.K. Balasubramanyan"]
         self.auto.opinions = [Opinion("G.P. Mathur", "majority")]
         meta = dataset_meta(self.pdf, self.auto)
-        self.assertEqual(meta.opinions[0].author, "G.P. Mathur")
-        self.assertEqual(meta.field_sources["author"], "pdf, dataset differs")
-        self.assertEqual(len(meta.conflicts), 1, meta.conflicts)
-
-    def test_a_missing_author_is_taken_from_the_record(self):
-        from legal_lens.dataset import dataset_meta
-        from legal_lens.manifest import Opinion
+        self.assertEqual((meta.opinions[0].author, meta.field_sources["author"]), ("G.P. Mathur", "pdf"))
+        self.assertEqual(meta.conflicts, [])
         self.auto.opinions = [Opinion(None, "unknown")]
         meta = dataset_meta(self.pdf, self.auto)
-        self.assertEqual((meta.opinions[0].author, meta.opinions[0].type), ("R.C. Lahoti", "majority"))
-        self.assertEqual(meta.field_sources["author"], "dataset")
+        self.assertEqual((meta.opinions[0].author, meta.opinions[0].type), (None, "majority"))
+        self.assertEqual(meta.field_sources["author"], "missing")
 
     def test_a_pdf_outside_a_sample_folder_has_no_record(self):
         from legal_lens.dataset import dataset_meta
